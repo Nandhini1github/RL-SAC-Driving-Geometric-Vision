@@ -13,6 +13,8 @@ Before opening the new test set, the criterion for an improvement in completion 
 3. Use uniform scenario sampling and independent training seeds 37, 83 and 109, each with 32,768 steps. Evaluate checkpoints every 8,192 steps. Select the checkpoint for each seed using the same camera-only validation ranking. Keep the earliest checkpoint in a tie. This comparison tests the trained residual on top of the tuned baseline. It cannot identify which individual change to the training recipe caused an outcome.
 4. After selection, evaluate all controllers on seeds 12000 through 12029 in each of the three scenes. Every actor receives only camera measurements and its previous commands. The held-out evaluator independently records true completion, contact and lateral error. Report all three seeds and all three scene types regardless of the outcome. This test is in Gymnasium.
 
+For context, also score the three previously published fixed-training SAC checkpoints on the new routes. Those checkpoints used 12,288 transitions and their original reward. Any difference from residual SAC combines several training changes. On paired successful routes, compare time to first reach the finish threshold to expose a possible speed versus reliability trade-off.
+
 ## Reproduce on Windows
 
 ```powershell
@@ -20,4 +22,5 @@ $py = ".\.venv\Scripts\python.exe"
 & $py -m sac_training.residual tune
 foreach ($seed in 37,83,109) { & $py -m sac_training.residual train --seed $seed }
 & $py -m sac_training.residual test
+& $py -m evaluation.residual_results
 ```

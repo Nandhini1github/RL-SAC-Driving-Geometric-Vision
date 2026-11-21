@@ -6,26 +6,35 @@ from driving_environment.route import RouteEnv
 from driving_environment.camera_features import CameraFeatures
 
 
-def main():
-    a,b = RouteEnv(),RouteEnv()
+def check_hidden_state(a, b):
     assert np.array_equal(a.reset(seed=71)[0], b.reset(seed=71)[0])
     for i in range(12):
         act=np.float32([.05,.6])
         recorded=[]
-        renderer=a.cameras.pair
+        renderer=a.unwrapped.cameras.pair
         def capture(x,y,yaw):
             pair=renderer(x,y,yaw)
             recorded.extend(pair)
             return pair
-        with patch.object(a.cameras,"pair",side_effect=capture):
+        with patch.object(a.unwrapped.cameras,"pair",side_effect=capture):
             first=a.step(act)
         # If the reward, observation or a done flag used state directly this would change it.
-        b.x,b.y,b.yaw,b.speed,b.ox=250.,60.,1.9,9.,250.
-        with patch.object(b.cameras,"pair",return_value=recorded):
+        hidden = b.unwrapped
+        hidden.x,hidden.y,hidden.yaw,hidden.speed,hidden.ox=250.,60.,1.9,9.,250.
+        with patch.object(hidden.cameras,"pair",return_value=recorded):
             second=b.step(act)
         np.testing.assert_allclose(first[0],second[0])
         assert first[1:]==second[1:], f"Learning signals depend on hidden state at tick {i}"
-    print("Passed: equal camera frames and commands produced equal training signals under different hidden states.")
+    a.close()
+    b.close()
+
+
+def main():
+    from sac_training.residual import DEFAULT, ResidualEnv
+
+    check_hidden_state(RouteEnv(), RouteEnv())
+    check_hidden_state(ResidualEnv(DEFAULT), ResidualEnv(DEFAULT))
+    print("Passed: equal images and commands produced equal learning signals for standalone and residual SAC under different hidden states.")
 
     env = RouteEnv()
     env.reset(seed=71, options={"scene": "obstacle"})

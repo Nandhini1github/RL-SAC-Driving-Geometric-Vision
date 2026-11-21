@@ -65,7 +65,7 @@ class ResidualEnv(gym.Wrapper):
         return self.features(obs), float(reward), done, timed_out, info
 
 
-def rollouts(settings, split, model=None, *, reference=False):
+def rollouts(settings, split, model=None, *, reference=False, standalone=False):
     first, count = split
     env = ResidualEnv(settings)
     zero = np.zeros(2, dtype=np.float32)
@@ -74,15 +74,23 @@ def rollouts(settings, split, model=None, *, reference=False):
         for seed in range(first, first + count):
             obs, _ = env.reset(seed=seed, options={"scene": scene})
             arrived = contact = departure = False
+            first_arrival = None
             errors = []
             while True:
-                correction = zero if model is None else model.predict(obs, deterministic=True)[0]
-                obs, _, done, timeout, info = env.step(correction)
+                if standalone:
+                    action = model.predict(obs[:11], deterministic=True)[0]
+                    raw_obs, _, done, timeout, info = env.unwrapped.step(action)
+                    obs = env.features(raw_obs)
+                else:
+                    correction = zero if model is None else model.predict(obs, deterministic=True)[0]
+                    obs, _, done, timeout, info = env.step(correction)
                 if reference:
                     error, hit, reached = env.unwrapped.reference_metrics()
                     contact |= hit
                     departure |= abs(error) > 2.6
                     arrived |= reached
+                    if reached and first_arrival is None:
+                        first_arrival = round(0.1 * env.unwrapped.steps, 1)
                 else:
                     error = info["error_m"]
                 errors.append(error)
@@ -91,7 +99,8 @@ def rollouts(settings, split, model=None, *, reference=False):
             success = arrived and not (contact or departure) if reference else info["success"]
             collision = contact if reference else info["collision"]
             rows.append(dict(scene=scene, seed=seed, success=int(success), collision=int(collision),
-                             rmse_m=float(np.sqrt(np.mean(np.square(errors)))), steps=len(errors)))
+                             rmse_m=float(np.sqrt(np.mean(np.square(errors)))), steps=len(errors),
+                             first_arrival_s=first_arrival))
     env.close()
     return rows
 
@@ -139,6 +148,10 @@ def test(settings):
     for name, config, model in [("original_pursuit", DEFAULT, None), ("tuned_pursuit", settings, None)]:
         tests.extend(dict(controller=name, training_seed="", **r) for r in rollouts(config, TEST, model, reference=True))
     for seed in SEEDS:
+        original = Path("results/control" if seed == 37 else f"results/control_seed{seed}")
+        standalone = SAC.load(original/"fixed", device="cpu")
+        tests.extend(dict(controller="standalone_sac", training_seed=seed, **r)
+                     for r in rollouts(settings, TEST, standalone, reference=True, standalone=True))
         model = SAC.load(OUT/str(seed)/"selected", device="cpu")
         tests.extend(dict(controller="residual_sac", training_seed=seed, **r)
                      for r in rollouts(settings, TEST, model, reference=True))
