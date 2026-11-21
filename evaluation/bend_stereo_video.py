@@ -175,7 +175,7 @@ def render(root, capture, dashboard=False):
         encoder.stdin.close()
         if encoder.wait():
             raise RuntimeError("Stereo film encoding failed")
-    preview_name = "dashboard-preview.gif" if dashboard else "preview.gif"
+    preview_name = "bends-stereo-steering.gif" if dashboard else "preview.gif"
     previews[0].save(media/preview_name,save_all=True,append_images=previews[1:],duration=500,loop=0)
 
 

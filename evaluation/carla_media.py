@@ -119,7 +119,7 @@ def main():
                 cv2.imwrite(str(MEDIA/"carla-poster.jpg"),img,[cv2.IMWRITE_JPEG_QUALITY,95])
         process.stdin.close()
         if process.wait(): raise RuntimeError("H.264 export failed")
-    previews[0].save(MEDIA/"carla-preview.gif",save_all=True,append_images=previews[1:],duration=600,loop=0)
+    previews[0].save(MEDIA/"braking-stereo-range.gif",save_all=True,append_images=previews[1:],duration=600,loop=0)
     print(json.dumps(summary,indent=2))
 
 
