@@ -22,12 +22,17 @@
   <main>
     <h1>Camera-only driving demos</h1>
     <nav aria-label="Recordings and project">
+      <a href="#td3">TD3 and imitation</a>
       <a href="#fixed">Fixed SAC</a>
       <a href="#adaptive">Adaptive SAC</a>
       <a href="#comparison">Controller comparison</a>
-      <a href="#td3">TD3 and imitation</a>
       <a href="https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision#readme">Results and methods ↗</a>
     </nav>
+    <section id="td3">
+      <h2>From driving demonstrations to TD3</h2>
+      <video aria-label="Pure pursuit, imitation only, and final TD3 on replication route 31000" src="results/td3/controllers.mp4" autoplay muted playsinline loop controls></video>
+      <p>The two neural policies both learned from the geometric controller's demonstrations. The third row also received reward-based TD3 updates. Both networks issue steering and acceleration directly. This is the first obstacle route of the independent Gymnasium replication, using training seed 37.</p>
+    </section>
     <section id="fixed">
       <h2>Fixed SAC in CARLA</h2>
       <video aria-label="Fixed SAC braking in CARLA" src="results/carla_sensor/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
@@ -43,11 +48,6 @@
       <video aria-label="Lane tracking error for three controllers on obstacle route 8002" src="results/media/controllers.mp4?route=8002" autoplay muted playsinline loop controls></video>
       <p>During inference, each trained SAC policy uses camera measurements to steer and accelerate. The gray line is the lane center and the teal line is the path driven. On this route, pure pursuit averaged 0.24 m tracking RMSE, adaptive SAC 0.25 m and fixed SAC 0.29 m.</p>
       <p>Route 8002 was the first of two held-out obstacle routes all three controllers finished for training seed 37. The <a href="https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision#reinforcement-learning-on-held-out-routes">full comparison</a> includes all 20 obstacle routes for each seed.</p>
-    </section>
-    <section id="td3">
-      <h2>From driving demonstrations to TD3</h2>
-      <video aria-label="Pure pursuit, imitation only, and final TD3 on replication route 31000" src="results/td3/controllers.mp4" autoplay muted playsinline loop controls></video>
-      <p>The two neural policies both learned from the geometric controller's demonstrations. The third row also received reward-based TD3 updates. Both networks issue steering and acceleration directly. This is the first obstacle route of the independent Gymnasium replication, using training seed 37.</p>
     </section>
   </main>
 </body>

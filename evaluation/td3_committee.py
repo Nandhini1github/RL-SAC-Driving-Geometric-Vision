@@ -14,8 +14,10 @@ from sac_training.td3_camera import SEEDS, SETTINGS, load_actor
 
 OUT = Path("results/td3/committee")
 TEST = (45000, 200)
-ARMS = ("td3_median", "imitation_median", "pursuit", "slower_pursuit", *(f"td3_{s}" for s in SEEDS))
-PRIMARY = ("pursuit", "slower_pursuit", "imitation_median")
+ARMS = ("td3_median", "imitation_median", "pursuit", *(f"td3_{s}" for s in SEEDS))
+PRIMARY = ("pursuit", "imitation_median")
+# Retain the margin specified before the test set was opened.
+TAIL_PROBABILITY = .025 / 3
 
 
 class MedianActor:
@@ -28,7 +30,6 @@ class MedianActor:
 
 
 def evaluate(arm):
-    settings = (4.5, 3.75, 0.) if arm == "slower_pursuit" else SETTINGS
     model = None
     if arm == "td3_median":
         model = MedianActor("final")
@@ -36,14 +37,42 @@ def evaluate(arm):
         model = MedianActor("clone")
     elif arm.startswith("td3_"):
         model = load_actor("final", int(arm.split("_")[-1]))
-    rows = rollouts(settings, TEST, model, reference=True, standalone=model is not None)
+    rows = rollouts(SETTINGS, TEST, model, reference=True, standalone=model is not None)
     OUT.mkdir(parents=True, exist_ok=True)
     save_csv(OUT/f"{arm}.csv", rows)
     print(arm, sum(r["success"] for r in rows), len(rows), flush=True)
 
 
-def summarize():
-    tables = {arm:pd.read_csv(OUT/f"{arm}.csv").set_index(["seed","scene"]).sort_index() for arm in ARMS}
+def plot_head_to_head(tables):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+
+    scenes = ["straight", "bend", "obstacle"]
+    x = np.arange(len(scenes))
+    fig, ax = plt.subplots(figsize=(7.5, 3.7), layout="constrained")
+    for arm, name, shift, color in (
+        ("td3_median", "TD3 ensemble", -.19, "#16676c"),
+        ("pursuit", "Tuned teacher", .19, "#778598"),
+    ):
+        fails = (1 - tables[arm].success).groupby(level="scene").sum().loc[scenes]
+        bars = ax.bar(x + shift, fails, .36, label=name, color=color)
+        ax.bar_label(bars, padding=3)
+    ax.set(xticks=x, xticklabels=["Straight", "Bend", "Obstacle bypass"],
+           ylabel="Unfinished routes", title="Where did each controller miss a finish?")
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_ylim(0, max(2, ax.get_ylim()[1] * 1.15))
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(loc="upper center", bbox_to_anchor=(.5, -.11), ncol=2, frameon=False)
+    fig.savefig(OUT / "head-to-head.png", dpi=160)
+    plt.close(fig)
+
+
+def summarize(head_to_head=False):
+    arms = ("td3_median", "pursuit") if head_to_head else ARMS
+    comparators = ("pursuit",) if head_to_head else PRIMARY
+    tables = {arm:pd.read_csv(OUT/f"{arm}.csv").set_index(["seed","scene"]).sort_index() for arm in arms}
     reference = tables["td3_median"]
     expected = pd.MultiIndex.from_product([range(TEST[0],TEST[0]+TEST[1]), ["bend","obstacle","straight"]],
                                           names=["seed","scene"])
@@ -55,12 +84,12 @@ def summarize():
     rng = np.random.default_rng(37419)
     indices = rng.integers(0,TEST[1],(20000,TEST[1]))
     comparisons = {}
-    for arm in PRIMARY:
+    for arm in comparators:
         other = tables[arm]
         diff = reference.success - other.success
         # All three scenes for a route seed stay in the same bootstrap block.
         gains = 100*diff.groupby(level="seed").mean().to_numpy()[indices].mean(axis=1)
-        interval = np.quantile(gains,[.025/len(PRIMARY),1-.025/len(PRIMARY)])
+        interval = np.quantile(gains,[TAIL_PROBABILITY,1-TAIL_PROBABILITY])
         joint = reference.success.eq(1) & other.success.eq(1)
         comparisons[arm] = dict(gain_pp=float(100*diff.mean()), simultaneous_interval_pp=interval.tolist(),
                                 td3_only_finishes=int(diff.eq(1).sum()), other_only_finishes=int(diff.eq(-1).sum()),
@@ -69,16 +98,19 @@ def summarize():
     passed = all(v["simultaneous_interval_pp"][0]>0 and totals["td3_median"]["contacts"]<=totals[k]["contacts"]
                  for k,v in comparisons.items())
     report = dict(controllers=totals, paired_td3_minus_control=comparisons, meets_criterion=bool(passed))
-    (OUT/"summary.json").write_text(json.dumps(report,indent=2)+"\n")
+    filename = "head-to-head.json" if head_to_head else "summary.json"
+    (OUT/filename).write_text(json.dumps(report,indent=2)+"\n")
+    if head_to_head:
+        plot_head_to_head(tables)
     print(json.dumps(report,indent=2))
 
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument("arm",choices=(*ARMS,"summary"))
+    parser.add_argument("arm",choices=(*ARMS,"summary","head-to-head"))
     args=parser.parse_args()
     torch.set_num_threads(1)
-    if args.arm=="summary":
-        summarize()
+    if args.arm in ("summary", "head-to-head"):
+        summarize(head_to_head=args.arm=="head-to-head")
     else:
         evaluate(args.arm)

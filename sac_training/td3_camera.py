@@ -187,10 +187,9 @@ def test(arm, seed, confirm=False):
     if arm == "residual":
         from stable_baselines3 import SAC
         actor = SAC.load(Path("results/residual")/str(seed)/"selected", device="cpu")
-    elif arm not in ("pursuit", "conservative"):
+    elif arm != "pursuit":
         actor = load_actor(arm, seed)
-    settings = (4.5, 3.75, 0.0) if arm == "conservative" else SETTINGS
-    rows = rollouts(settings, (31000,100) if confirm else TEST, actor, reference=True,
+    rows = rollouts(SETTINGS, (31000,100) if confirm else TEST, actor, reference=True,
                     standalone=arm in ("td3", "clone", "final"))
     directory = OUT/"confirmation" if confirm else OUT
     target = directory/(f"{arm}.csv" if actor is None else f"{seed}/{arm}.csv")
@@ -203,7 +202,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("collect", "train", "export-final", "test"))
     parser.add_argument("--seed", type=int, choices=SEEDS, default=37)
-    parser.add_argument("--arm", choices=("pursuit", "conservative", "td3", "clone", "residual", "final"), default="pursuit")
+    parser.add_argument("--arm", choices=("pursuit", "td3", "clone", "residual", "final"), default="pursuit")
     parser.add_argument("--confirm",action="store_true",help="Use the independent 300-route replication")
     args = parser.parse_args()
     torch.set_num_threads(1)

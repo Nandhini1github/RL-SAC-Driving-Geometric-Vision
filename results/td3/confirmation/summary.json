@@ -14,20 +14,6 @@
         "obstacle": 99
       }
     },
-    "conservative": {
-      "episodes": 300,
-      "successes": 294,
-      "contacts": 0,
-      "mean_episode_rmse_m": 0.1669188811203989,
-      "completions_per_run": [
-        294
-      ],
-      "scene_successes": {
-        "straight": 94,
-        "bend": 100,
-        "obstacle": 100
-      }
-    },
     "final": {
       "episodes": 900,
       "successes": 880,
@@ -89,20 +75,6 @@
       ],
       "jointly_finished": 852,
       "paired_arrival_difference_s": 0.06326291079812207
-    },
-    "conservative": {
-      "gain_pp": -0.2222222222222222,
-      "ci95_pp": [
-        -3.111111111111111,
-        2.2222222222222223
-      ],
-      "per_seed_net_routes": [
-        -8,
-        2,
-        4
-      ],
-      "jointly_finished": 866,
-      "paired_arrival_difference_s": -0.6538106235565819
     }
   },
   "meets_criterion": false

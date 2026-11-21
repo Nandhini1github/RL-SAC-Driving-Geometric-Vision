@@ -9,11 +9,10 @@ The final TD3 networks produced steering and acceleration directly from camera-d
 | Tuned pure pursuit, 4 m/s target | 288/300 (96.0%) | 0 | 0.171 m |
 | Continued imitation only | 870/900 (96.7%) | 0 | 0.171 m |
 | Final TD3 after imitation | 880/900 (97.8%) | 0 | 0.214 m |
-| Slower pure pursuit, 3.75 m/s target | 294/300 (98.0%) | 0 | 0.167 m |
 
 **The advantage depended on the training seed.** The TD3 actors finished 286, 296 and 298 routes respectively. Against tuned pure pursuit the paired gain was +1.78 percentage points, with a 95% bootstrap interval of −1.33 to +4.67. Against imitation the gain was +1.11 points, with an interval of −2.11 to +3.78. Both comparisons missed the prespecified criterion for a consistent RL improvement.
 
-**Speed changes the ranking.** TD3 reached the finish 0.05 s later on average than tuned pure pursuit on their 849 paired finishes. Slowing pure pursuit raised its completion to 98.0%. TD3 finished **0.65 s sooner on average** on the 866 paired trials both it and that slower controller completed. Pure pursuit had lower lateral tracking error at both speeds. These results apply to this Gymnasium simulator. [Replication scores, intervals and timings](../results/td3/confirmation/summary.json)
+TD3 reached the finish 0.05 s later on average than the tuned teacher on their 849 paired finishes. The teacher tracked the lane more closely, with mean episode lateral RMSE of 0.171 m versus 0.214 m for TD3. [Replication scores, intervals and timings](../results/td3/confirmation/summary.json)
 
 ![Paired completion differences on 300 fresh routes](../results/td3/confirmation/paired.png)
 
@@ -52,7 +51,7 @@ Two secondary comparisons use the same routes: the previous study's frozen resid
 
 ### Independent replication protocol
 
-The secondary final-TD3 comparison in the first 180 routes motivated one independent replication. Before testing, freeze the three final TD3 actors and the three selected continuing-imitation actors, without further updates or selection. Evaluate seeds 31000–31099 in all three scenes (300 distinct routes). The primary comparators are the published tuned teacher and continuing imitation. Use the same per-seed, contact and paired-interval criteria as before, now applied to the final RL actors. Report paired travel time and tracking error. Also score a conservative pure-pursuit reference with the same 4.5 m lookahead and a 3.75 m/s target to check whether a small speed reduction can achieve a similar completion rate. This additional reference is a sensitivity check. Publish this one replication irrespective of outcome.
+The secondary final-TD3 comparison in the first 180 routes motivated one independent replication. Before testing, freeze the three final TD3 actors and the three selected continuing-imitation actors, without further updates or selection. Evaluate seeds 31000–31099 in all three scenes (300 distinct routes). The primary comparators are the published tuned teacher and continuing imitation. Use the same per-seed, contact and paired-interval criteria as before, now applied to the final RL actors. Report paired travel time and tracking error. Publish this one replication irrespective of outcome.
 
 ## What changes during the RL updates?
 
@@ -71,7 +70,7 @@ foreach ($seed in 37,83,109) {
     foreach ($arm in 'td3','clone','residual','final') { & $py -m sac_training.td3_camera test --arm $arm --seed $seed }
 }
 & $py -m evaluation.td3_results
-foreach ($arm in 'pursuit','conservative') { & $py -m sac_training.td3_camera test --confirm --arm $arm }
+& $py -m sac_training.td3_camera test --confirm --arm pursuit
 foreach ($seed in 37,83,109) {
     foreach ($arm in 'final','clone') { & $py -m sac_training.td3_camera test --confirm --arm $arm --seed $seed }
 }

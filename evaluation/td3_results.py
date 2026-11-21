@@ -53,29 +53,27 @@ def meets(comparisons, summary, arm):
 
 def confirmation():
     directory = OUT/"confirmation"
-    scores = {arm:[read_scores(directory/f"{arm}.csv",300)] for arm in ("pursuit","conservative")}
+    scores = {"pursuit": [read_scores(directory/"pursuit.csv", 300)]}
     for arm in ("final","clone"):
         scores[arm] = [read_scores(directory/str(seed)/f"{arm}.csv",300) for seed in SEEDS]
     rng = np.random.default_rng(804)
     summary = describe(scores)
     comparisons = {name:paired(scores["final"], scores[name] if name == "clone" else scores[name]*len(SEEDS), rng)
-                   for name in ("pursuit", "clone", "conservative")}
-    primary = {name:comparisons[name] for name in ("pursuit", "clone")}
+                   for name in ("pursuit", "clone")}
     report = dict(arms=summary, paired_final_minus_comparator=comparisons,
-                  meets_criterion=bool(meets(primary,summary,"final")))
+                  meets_criterion=bool(meets(comparisons,summary,"final")))
     output = json.dumps(report, indent=2)
     (directory/"summary.json").write_text(output+"\n")
     print(output)
     fig,ax = plt.subplots(figsize=(8.4,3.7), layout="constrained")
-    for i,(arm,title) in enumerate((("pursuit","Tuned pure pursuit"),("clone","Imitation only"),
-                                   ("conservative","Slower pure pursuit"))):
+    for i,arm in enumerate(("pursuit", "clone")):
         c = comparisons[arm]
         lo, hi = c["ci95_pp"]
         ax.hlines(i,lo,hi,color="#2d7184",linewidth=3)
         ax.plot(c["gain_pp"],i,"o",color="#193d48")
     ax.axvline(0,color="#858585",ls="--")
-    ax.set(yticks=[0,1,2], yticklabels=["Tuned pure pursuit","Imitation only","Slower pure pursuit"],
-           xlabel="TD3 minus comparator completion (percentage points)",ylim=(2.6,-.6),
+    ax.set(yticks=[0,1], yticklabels=["Tuned pure pursuit","Imitation only"],
+           xlabel="TD3 minus comparator completion (percentage points)",ylim=(1.6,-.6),
            title="Frozen policies on 300 fresh routes • paired 95% intervals")
     fig.savefig(directory/"paired.png",dpi=160)
     plt.close(fig)

@@ -1,12 +1,18 @@
 # RL-SAC-Driving-Geometric-Vision
 
-**Can camera measurements alone train and drive a trajectory-tracking policy?** We trained SAC from scratch on lane, speed and obstacle estimates computed from rendered stereo frames. The reward and the training supervisor use visual measurements too. Frozen policies then drove in CARLA with stereo cameras and image-based speed estimation. Simulator truth scores the final experiments.
+**Can reinforcement learning improve on the controller it learned from?** In Gymnasium, a car follows 40 m routes using lane position, speed and obstacle features estimated from stereo images, plus its previous commands. A geometric controller called pure pursuit supplies the initial driving demonstrations. Offline TD3 (Twin Delayed Deep Deterministic Policy Gradient) then uses camera-derived rewards to learn steering and acceleration. During a drive the neural controller issues both commands directly.
 
-**What improved the learned controller?** On 90 new Gymnasium routes repeated over three training seeds, SAC trained to correct a geometric controller completed **94.8%** of trials, compared with **67.4%** for direct-action SAC at the same training budget. Recorded contacts were **0 versus 16**. Tuned pure pursuit alone reached **95.6%** completion. On trials both it and residual SAC finished, the learned corrections reached the finish **0.38 s sooner on average**. The CARLA videos below show the original standalone policies. [Residual SAC experiment, plots and matched comparisons](docs/residual-experiment.md)
+### TD3 versus its driving teacher
 
-**[Watch the driving videos in full resolution with autoplay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/)** · [Technical report](docs/technical-report.md)
+The head-to-head uses the validation-tuned teacher with a 4.5 m lookahead and a 4.0 m/s speed target. The same cameras, route seeds, action limits and finish rule apply to both controllers. The independent evaluator counts a finish when the car reaches 39 m without contact or lane departure. [Benchmark protocol and additional controls](docs/td3-committee.md)
 
-**Can a standalone RL policy drive without pure pursuit at inference?** After learning from geometric demonstrations and then training with TD3 on camera rewards, the frozen networks finished **97.8%** of trials on a separate 300-route Gymnasium test, with zero recorded contacts across three training seeds. Tuned pure pursuit finished **96.0%**, imitation alone **96.7%**, and slower pure pursuit **98.0%**. Two of three TD3 seeds beat the tuned controller. The uncertainty interval includes zero. [Independent replication and limitations](docs/td3-experiment.md) · [Watch TD3 drive](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)
+An earlier replication evaluated the three TD3 policies individually on 300 routes each. They completed 880/900 trials (97.8%) with zero recorded contacts. Their teacher completed 288/300 (96.0%). The paired interval included zero. [Replication and limitations](docs/td3-experiment.md)
+
+**[Watch the single-policy TD3 replay and CARLA driving videos](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)** · [Technical report](docs/technical-report.md)
+
+### What did SAC add?
+
+On 90 separate Gymnasium routes repeated over three training seeds, SAC trained to correct a geometric controller completed **94.8%** of trials, compared with **67.4%** for direct-action SAC at the same training budget. Recorded contacts were **0 versus 16**. On trials both residual SAC and its geometric controller finished, the learned corrections reached the finish **0.38 s sooner on average**. The CARLA videos show the standalone SAC policies using stereo perception and a deterministic safety brake. [Residual SAC experiment and matched comparisons](docs/residual-experiment.md)
 
 ### Fixed SAC in CARLA
 
