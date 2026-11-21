@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Camera-only driving demos · RL-SAC-Driving-Geometric-Vision</title>
+  <style>
+    * { box-sizing: border-box }
+    body { margin: 0; background: #10171c; color: #edf3f5; font: 1rem/1.5 Inter, system-ui, sans-serif }
+    main { width: min(100% - 2rem, 76rem); margin: 2.5rem auto 4rem }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12; letter-spacing: -.035em }
+    h2 { font-size: clamp(1.3rem, 3vw, 2rem); margin: 0 0 .7rem }
+    nav { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: 1rem }
+    a { color: #85dcd2; text-underline-offset: .2em }
+    section { margin-top: 2.5rem; scroll-margin-top: 1rem }
+    video { display: block; width: 100%; aspect-ratio: 16/9; background: #151b20; border-radius: .35rem }
+    p { max-width: 78ch; color: #c1ccd1; margin-top: .7rem }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Camera-only driving demos</h1>
+    <nav aria-label="Recordings and project">
+      <a href="#fixed">Fixed SAC</a>
+      <a href="#adaptive">Adaptive SAC</a>
+      <a href="#comparison">Controller comparison</a>
+      <a href="https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision#readme">Results and methods ↗</a>
+    </nav>
+    <section id="fixed">
+      <h2>Fixed SAC in CARLA</h2>
+      <video aria-label="Fixed SAC braking in CARLA" src="results/carla_sensor/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
+      <p>The cyan line follows the lane estimated from the left camera. The orange brake indicator shows when the safety supervisor took over. Final camera-to-obstacle clearance was 3.50 m.</p>
+    </section>
+    <section id="adaptive">
+      <h2>Adaptive SAC in CARLA</h2>
+      <video aria-label="Adaptive SAC braking in CARLA" src="results/carla_sensor_adaptive/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
+      <p>The rule-guided policy drove the same straight approach with the same brake supervisor. Final camera-to-obstacle clearance was 3.74 m.</p>
+    </section>
+    <section id="comparison">
+      <h2>Three controllers on one obstacle bypass</h2>
+      <video aria-label="Pure pursuit, fixed SAC and adaptive SAC on the same Gymnasium route" src="results/media/controllers.mp4" autoplay muted playsinline loop controls></video>
+      <p>Each row shows the training-camera view and the resulting path on held-out route 8000. The overhead view is drawn for evaluation.</p>
+    </section>
+  </main>
+</body>
+</html>

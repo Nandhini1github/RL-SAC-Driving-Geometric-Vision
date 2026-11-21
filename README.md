@@ -2,7 +2,11 @@
 
 **Can camera measurements alone train and drive a trajectory-tracking policy?** We trained SAC from scratch on lane, speed and obstacle estimates computed from rendered stereo frames. The reward and the training supervisor use visual measurements too. Frozen policies then drove in CARLA with stereo cameras and image-based speed estimation. Simulator truth scores the final experiments.
 
-![CARLA braking replay showing the camera view, stereo depth, speed and distance as the car approaches and stops.](results/carla_sensor/media/carla-preview.gif)
+**[Watch all three videos in full resolution with autoplay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/)** · [Technical report](docs/technical-report.md)
+
+### Fixed SAC in CARLA
+
+[![Fixed SAC approach showing the camera view, stereo depth, visual speed and brake override.](results/carla_sensor/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#fixed)
 
 <details>
 <summary>Play the full 1080p video with controls</summary>
@@ -11,9 +15,11 @@ https://github.com/user-attachments/assets/c6cfebe8-f0f7-4b22-98b1-e01f7c7706fa
 
 </details>
 
-**[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/carla_sensor/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
+The cyan line is the camera-fitted lane used for steering. Speed comes from pavement motion between left-camera frames. Stereo disparity supplies obstacle range and bearing. The adjacent plot overlays the independent reference range for evaluation.
 
-The 1080p film shows the fixed SAC policy. The cyan line is the camera-fitted lane used for steering. Speed comes from pavement motion between left-camera frames. Stereo disparity supplies obstacle range and bearing. The adjacent plot overlays the independent reference range for evaluation. [Adaptive SAC driving video](results/carla_sensor_adaptive/media/carla-stereo-stop.mp4)
+### Adaptive SAC in CARLA
+
+[![Adaptive SAC approach to the same parked vehicle, including the brake override and stop.](results/carla_sensor_adaptive/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#adaptive)
 
 ## Geometric vision on a live CARLA approach
 
@@ -74,7 +80,7 @@ Fixed SAC completed 21 more trials than rule-guided adaptive SAC across the thre
 
 ![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
 
-![Three controllers on the same held-out route](results/media/controllers.gif)
+[![Pure pursuit, fixed SAC and adaptive SAC tracking the same held-out route.](results/media/controllers.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#comparison)
 
 ## What the training agent learned from the logs
 
