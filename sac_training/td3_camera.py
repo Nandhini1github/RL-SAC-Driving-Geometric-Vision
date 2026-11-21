@@ -80,7 +80,7 @@ def scores(actor):
     return rank(rollouts(SETTINGS, VALID, actor, standalone=True))
 
 
-def train(seed):
+def train(seed, export_final=False):
     torch.manual_seed(seed)
     folder = OUT/str(seed)
     folder.mkdir(exist_ok=True)
@@ -104,13 +104,21 @@ def train(seed):
     critic_opt = torch.optim.Adam(critics.parameters(), lr=.0005)
     actor_opt = torch.optim.Adam(actor.parameters(), lr=.00015)
     clone_opt = torch.optim.Adam(clone.parameters(), lr=.00015)
-    initial_score = scores(actor)
-    best = {name:initial_score for name in ("td3","clone")}
     history = []
-    for name in best:
-        torch.save(actor.state_dict(), folder/f"{name}.pt")
-        history.append(dict(arm=name, critic_updates=0, post_warmup_actor_updates=0,
-                            validation_rank=initial_score, selected=True))
+    if export_final:
+        records = json.loads((folder/"validation.json").read_text())
+        assert len(records) == 2*(STAGES+1)
+        winner = max((r for r in records if r["arm"] == "td3"), key=lambda r:r["validation_rank"])
+        selected_updates = winner["post_warmup_actor_updates"]
+        if selected_updates == 0:
+            assert_matches_saved(actor, folder/"td3.pt")
+    else:
+        initial_score = scores(actor)
+        best = {name:initial_score for name in ("td3","clone")}
+        for name in best:
+            torch.save(actor.state_dict(), folder/f"{name}.pt")
+            history.append(dict(arm=name, critic_updates=0, post_warmup_actor_updates=0,
+                                validation_rank=initial_score, selected=True))
 
     for stage in range(1, STAGES+1):
         for step in range(UPDATES):
@@ -143,6 +151,10 @@ def train(seed):
                     for source, dest in ((actor, target_actor), (critics, targets)):
                         for p, t in zip(source.parameters(), dest.parameters()):
                             t.lerp_(p, .005)
+        if export_final:
+            if stage*UPDATES//2 == selected_updates:
+                assert_matches_saved(actor, folder/"td3.pt")
+            continue
         for name, policy in (("td3", actor), ("clone", clone)):
             score = scores(policy)
             selected = score > best[name]
@@ -154,34 +166,46 @@ def train(seed):
                                 validation_rank=score, selected=selected))
         (folder/"validation.json").write_text(json.dumps(history, indent=2))
         print(seed, stage, "selected validation scores", best, flush=True)
+    torch.save(actor.state_dict(), folder/"final.pt")
 
 
-def test(arm, seed):
+def assert_matches_saved(actor, path):
+    original = torch.load(path, weights_only=True)
+    for name, tensor in actor.state_dict().items():
+        torch.testing.assert_close(tensor, original[name], rtol=0, atol=0)
+
+
+def test(arm, seed, confirm=False):
     actor = None
     if arm == "residual":
         from stable_baselines3 import SAC
         actor = SAC.load(Path("results/residual")/str(seed)/"selected", device="cpu")
-    elif arm != "pursuit":
+    elif arm not in ("pursuit", "conservative"):
         actor = CameraActor(torch.zeros(11), torch.ones(11))
         actor.load_state_dict(torch.load(OUT/str(seed)/f"{arm}.pt", weights_only=True))
         actor.eval()
-    rows = rollouts(SETTINGS, TEST, actor, reference=True, standalone=arm in ("td3", "clone"))
-    target = OUT/("pursuit.csv" if actor is None else f"{seed}/{arm}.csv")
+    settings = (4.5, 3.75, 0.0) if arm == "conservative" else SETTINGS
+    rows = rollouts(settings, (31000,100) if confirm else TEST, actor, reference=True,
+                    standalone=arm in ("td3", "clone", "final"))
+    directory = OUT/"confirmation" if confirm else OUT
+    target = directory/(f"{arm}.csv" if actor is None else f"{seed}/{arm}.csv")
+    target.parent.mkdir(parents=True, exist_ok=True)
     save_csv(target, rows)
     print(arm, seed, sum(r["success"] for r in rows), "/", len(rows), flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("collect", "train", "test"))
+    parser.add_argument("mode", choices=("collect", "train", "export-final", "test"))
     parser.add_argument("--seed", type=int, choices=SEEDS, default=37)
-    parser.add_argument("--arm", choices=("pursuit", "td3", "clone", "residual"), default="pursuit")
+    parser.add_argument("--arm", choices=("pursuit", "conservative", "td3", "clone", "residual", "final"), default="pursuit")
+    parser.add_argument("--confirm",action="store_true",help="Use the independent 300-route replication")
     args = parser.parse_args()
     torch.set_num_threads(1)
     OUT.mkdir(parents=True, exist_ok=True)
     if args.mode == "collect":
         collect()
-    elif args.mode == "train":
-        train(args.seed)
+    elif args.mode in ("train", "export-final"):
+        train(args.seed, export_final=args.mode == "export-final")
     else:
-        test(args.arm, args.seed)
+        test(args.arm, args.seed, confirm=args.confirm)
