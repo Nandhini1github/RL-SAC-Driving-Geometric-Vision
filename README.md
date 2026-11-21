@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/c6cfebe8-f0f7-4b22-98b1-e01f7c7706fa
 
 The cyan line is the camera-fitted lane used for steering. Speed comes from pavement motion between left-camera frames. Stereo disparity supplies obstacle range and bearing. The adjacent plot overlays the independent reference range for evaluation.
 
-### Camera-based SAC with adaptive training in CARLA
+### Adaptive SAC in CARLA
 
 [![Camera-based SAC with adaptive training approaches to the same parked vehicle, including the brake override and stop.](results/carla_sensor_adaptive/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#adaptive)
 
