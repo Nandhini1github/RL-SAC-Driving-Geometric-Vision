@@ -1,0 +1,36 @@
+{
+  "dataset": "synthetic rectified textured planes",
+  "frames_per_depth": 10,
+  "width": 480,
+  "height": 240,
+  "fx_px": 360.0,
+  "baseline_m": 0.24,
+  "seed": 2027,
+  "python": "3.12.12",
+  "opencv": "4.12.0",
+  "numpy": "2.2.6",
+  "platform": "Windows",
+  "rows": [
+    {
+      "depth_m": 4.0,
+      "coverage": 0.866609375,
+      "mae_m": 0.056230321526527405,
+      "rmse_m": 0.05694646015763283,
+      "median_ms": 43.45184995327145
+    },
+    {
+      "depth_m": 8.0,
+      "coverage": 0.8666484375,
+      "mae_m": 0.14469808340072632,
+      "rmse_m": 0.14492611587047577,
+      "median_ms": 43.493399978615344
+    },
+    {
+      "depth_m": 16.0,
+      "coverage": 0.8666484375,
+      "mae_m": 0.7715383172035217,
+      "rmse_m": 0.7887874245643616,
+      "median_ms": 43.14055002760142
+    }
+  ]
+}
