@@ -1,0 +1,23 @@
+[
+  {
+    "scene": "straight",
+    "frames": 362,
+    "valid": 358,
+    "speed_rmse_mps": 0.8718248094290955,
+    "offset_rmse_m": 0.08766206337184215
+  },
+  {
+    "scene": "bend",
+    "frames": 338,
+    "valid": 322,
+    "speed_rmse_mps": 0.5022708564815345,
+    "offset_rmse_m": 0.5306493605264055
+  },
+  {
+    "scene": "obstacle",
+    "frames": 324,
+    "valid": 311,
+    "speed_rmse_mps": 0.5782220404225784,
+    "offset_rmse_m": 0.771522841643435
+  }
+]

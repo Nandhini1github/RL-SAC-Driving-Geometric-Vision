@@ -21,7 +21,7 @@ def decide(rows):
     schema={"type":"object","properties":{"target":{"type":"string","enum":list(SCENES)},
             "reason":{"type":"string"}},"required":["target","reason"]}
     prompt=("You supervise SAC on a short route. Select one scenario to practice more, using only these "
-            "validation means. Prioritize collisions and failure to finish, then tracking and steering. "
+            "camera-derived validation means. Collision is a visual near-hazard proxy, and success is visual odometry progress. Prioritize hazards and failure to finish, then lane tracking and steering. "
             "Give one short reason grounded in the numbers.\n"+json.dumps(metrics))
     payload=dict(model="qwen2.5:7b", prompt=prompt, format=schema, stream=False,
                  options=dict(temperature=0,seed=SEED,num_predict=150,num_ctx=2048))
@@ -55,7 +55,7 @@ def main():
         print(decision,flush=True)
         model.learn(STAGE,reset_num_timesteps=False)
     model.save(OUT/"llm")
-    save_csv(OUT/"llm_heldout.csv",evaluate(model,8000,20))
+    save_csv(OUT/"llm_heldout.csv",evaluate(model,8000,20,score_reference=True))
 
 
 if __name__=="__main__":

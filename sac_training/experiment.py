@@ -19,7 +19,7 @@ SEED = 37
 STAGE = 4096
 
 
-def evaluate(model, first_seed, per_scene):
+def evaluate(model, first_seed, per_scene, *, score_reference=False):
     rows = []
     env = RouteEnv()
     for scene in SCENES:
@@ -27,16 +27,26 @@ def evaluate(model, first_seed, per_scene):
             obs, _ = env.reset(seed=seed, options={"scene":scene})
             errors, changes, latency = [], [], []
             total = 0
+            contact = offroad = arrived = False
             while True:
                 start = perf_counter_ns()
                 action = pursuit(obs) if model is None else model.predict(obs, deterministic=True)[0]
                 latency.append((perf_counter_ns()-start)/1e6)
                 obs, r, term, trunc, info = env.step(action)
-                errors.append(info["error_m"])
+                if score_reference:
+                    error,hit,reached=env.reference_metrics()
+                    contact |= hit
+                    offroad |= abs(error)>2.6
+                    arrived |= reached
+                else:
+                    error=info["error_m"]
+                errors.append(error)
                 changes.append(info["steering_change"])
                 total += r
                 if term or trunc:
                     break
+            if score_reference:
+                info.update(success=bool(arrived and not (contact or offroad)),collision=contact,departure=offroad)
             rows.append(dict(scene=scene, seed=seed, success=int(info["success"]), collision=int(info["collision"]),
                              departure=int(info["departure"]), rmse_m=float(np.sqrt(np.mean(np.square(errors)))),
                              steering_delta=float(np.mean(changes)), return_sum=total, latency_ms=float(np.median(latency))))
@@ -58,6 +68,7 @@ def main():
                buffer_size=32768, learning_starts=256, batch_size=128, train_freq=4, gradient_steps=2,
                ent_coef="auto_0.1", seed=SEED, device="cpu")
     base.learn(STAGE)
+    print("Shared camera policy trained", SEED, flush=True)
     base.save(OUT/"shared")
     base.save_replay_buffer(OUT/"shared_buffer.pkl")
     validation = evaluate(base, 700, 4)
@@ -80,7 +91,7 @@ def main():
                 model.learn(STAGE, reset_num_timesteps=False)
                 rows = evaluate(model, 700, 4)
             model.save(OUT/name)
-        tests.extend(dict(controller=name, **r) for r in evaluate(model, 8000, 20))
+        tests.extend(dict(controller=name, **r) for r in evaluate(model, 8000, 20, score_reference=True))
         print("Finished", name, flush=True)
     save_csv(OUT/"heldout.csv", tests)
     save_csv(OUT/"validation.csv", curves)

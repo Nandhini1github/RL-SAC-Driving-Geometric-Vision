@@ -21,30 +21,30 @@
     "arm": "adaptive",
     "stage": 1,
     "scores": {
-      "straight": 0.04091969219810199,
-      "bend": 0.08888422216632991,
-      "obstacle": 0.11235196821637251
+      "straight": 0.1586900116533804,
+      "bend": 1.552495990102742,
+      "obstacle": 1.0799897732422417
     },
-    "target": "obstacle",
+    "target": "bend",
     "weights": [
       0.2,
-      0.2,
-      0.6
+      0.6,
+      0.2
     ]
   },
   {
     "arm": "adaptive",
     "stage": 2,
     "scores": {
-      "straight": 0.06526152029467606,
-      "bend": 0.10582802782997722,
-      "obstacle": 0.11557414031899306
+      "straight": 0.22112259704591616,
+      "bend": 1.3618257268607439,
+      "obstacle": 1.1989154508610196
     },
-    "target": "obstacle",
+    "target": "bend",
     "weights": [
       0.2,
-      0.2,
-      0.6
+      0.6,
+      0.2
     ]
   }
 ]

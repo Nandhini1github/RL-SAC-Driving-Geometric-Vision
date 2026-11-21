@@ -42,7 +42,7 @@ def trace(img,x,y,w,h,series,maximum,colors,idx):
 def main():
     MEDIA.mkdir(parents=True,exist_ok=True)
     df=pd.read_csv(CARLA/"frames.csv")
-    speed=df.speed_mps.to_numpy()
+    speed=df.speed_mps.to_numpy(dtype=float)
     ranges=df.range_est_m.to_numpy()
     truth=df.parked_box_front_m.to_numpy()
     bins=[]
@@ -55,7 +55,7 @@ def main():
                  range_mae_m=float(np.nanmean(abs_err)),range_rmse_m=float(np.sqrt(np.nanmean(abs_err**2))),
                  detected_frames=int(np.isfinite(ranges).sum()),mean_coverage=df.coverage.mean(),
                  tracking_rmse_m=float(np.sqrt(np.mean(df.tracking_m**2))),shield_frames=int(df.override.sum()),
-                 final_box_range_m=truth[-1],peak_speed_mps=float(max(speed)))
+                 final_box_range_m=truth[-1],peak_speed_mps=float(np.nanmax(speed)))
     if "speed_ref_mps" in df:
         summary.update(speed_rmse_mps=float(np.sqrt(np.mean((df.speed_mps-df.speed_ref_mps)**2))),
                        lane_offset_rmse_m=float(np.sqrt(np.mean((df.lane_offset_m-df.tracking_m)**2))),
@@ -67,7 +67,7 @@ def main():
     axes[0].plot(t,ranges,".",label="Stereo surface",color="#c46e24")
     axes[0].set(xlabel="Simulation time (s)",ylabel="Forward range (m)")
     axes[1].plot(t,speed,color="#257b79",label="Vehicle speed")
-    axes[1].fill_between(t,0,df.override*max(speed),color="#d8a74d",alpha=.35,step="post",label="Brake override")
+    axes[1].fill_between(t,0,df.override*np.nanmax(speed),color="#d8a74d",alpha=.35,step="post",label="Brake override")
     axes[1].set(xlabel="Simulation time (s)",ylabel="Speed (m/s)")
     xx=np.arange(3)
     for i,key in enumerate(("mae_m","rmse_m")):
@@ -99,7 +99,8 @@ def main():
             label(img,"Left RGB and fitted lane" if "lane_heading_rad" in row else "Left RGB camera",32,721,1.0)
             label(img,"Stereo depth",990,721,1.0)
             label(img,"Warm = near     Cool = far (>30 m)     Black = invalid",1215,720,.71,MUTED)
-            label(img,f"Speed   {speed[i]:.1f} m/s",50,805,1.12)
+            speed_text = f"Visual speed   {speed[i]:.1f} m/s" if np.isfinite(speed[i]) else "Visual speed unavailable"
+            label(img,speed_text,50,805,1.12)
             label(img,f"Range   {ranges[i]:.1f} m",1000,805,1.12)
             label(img,"BRAKE OVERRIDE" if row.override else "SAC CONTROL",570,804,.83,AMBER if row.override else TEAL)
             label(img,"Stereo",1530,805,.82,TEAL)
@@ -125,5 +126,9 @@ def main():
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--sensor-run",action="store_true")
-    parser.parse_args()
+    parser.add_argument("--run-dir",type=Path,default=CARLA)
+    parser.add_argument("--capture-dir",type=Path,default=CAPTURE)
+    args=parser.parse_args()
+    CARLA,CAPTURE=args.run_dir,args.capture_dir
+    MEDIA=CARLA/"media"
     main()

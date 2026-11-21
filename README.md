@@ -1,44 +1,48 @@
 # RL-SAC-Driving-Geometric-Vision
 
-**Can a stereo range estimate transfer into a learned driving controller, and does adaptive training improve that controller?** This project tests both questions with a Windows CARLA 1.0 stereo rig, a Gymnasium bicycle model, and Soft Actor-Critic (SAC). Three training seeds compare fixed and adaptive curricula. A separate experiment gives a local language model bounded authority over scenario sampling.
+**Can camera measurements alone train and drive a trajectory-tracking policy?** We trained SAC from scratch on lane, speed and obstacle estimates computed from rendered stereo frames. The reward and the training supervisor use visual measurements too. Frozen policies then drove in CARLA with stereo cameras and image-based speed estimation. Simulator truth scores the final experiments.
 
 ![CARLA braking replay showing the camera view, stereo depth, speed and distance as the car approaches and stops.](results/carla_sensor/media/carla-preview.gif)
 
 <details>
 <summary>Play the full 1080p video with controls</summary>
 
-https://github.com/user-attachments/assets/6b1a6bd9-b623-4bbb-9746-ca05c4c5ecbe
+https://github.com/user-attachments/assets/c6cfebe8-f0f7-4b22-98b1-e01f7c7706fa
 
 </details>
 
 **[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/carla_sensor/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
 
-The CARLA film displays both 960 × 540 sensor panels at native resolution. Its half-speed playback shows the speed response and exact brake-override frames. The second film replays three controllers on the same held-out Gymnasium route. All reference trajectories in these experiments are deterministic.
+The 1080p film shows the fixed SAC policy. The cyan line is the camera-fitted lane used for steering. Speed comes from pavement motion between left-camera frames. Stereo disparity supplies obstacle range and bearing. The adjacent plot overlays the independent reference range for evaluation. [Adaptive SAC driving video](results/carla_sensor_adaptive/media/carla-stereo-stop.mp4)
 
 ## Geometric vision on a live CARLA approach
 
-A Tesla Model 3 approached a parked vehicle using **camera-derived lane guidance, stereo obstacle range and GNSS-estimated speed**. The map placed the two cars at the start. During driving, the policy received local lane offsets at 3, 6 and 10 m from the camera fit. It also received obstacle range and bearing from stereo, speed from timestamped GNSS fixes, and its previous applied command. Simulator pose, velocity, depth and actor geometry were reserved for evaluation during the run.
+Both seed-37 policies used the same camera rig, nominal 32 m parked-vehicle scenario, and deterministic brake. Fixed spawn coordinates placed the vehicles before driving. At each control step SAC received measured lane offset, heading, three lookaheads, visual speed, stereo obstacle features and its own preceding commands. The evaluator read actor velocity, pose, the box geometry, map centerline and reference depth after each command. Each column represents one run.
 
-| Metric | Sensor-driven approach (SAC seed 37) |
-|---|---:|
-| Control frames | 77 |
-| Recorded collisions | 0 |
-| Final camera-to-box clearance | 3.06 m |
-| Frames with brake override | 36 |
-| Lateral tracking RMSE against the evaluation centerline | 0.210 m |
-| Stereo obstacle range MAE | 0.56 m |
+| Metric | Fixed SAC | Rule-guided adaptive SAC |
+|---|---:|---:|
+| Frames scored | 81 | 78 |
+| Recorded collisions | 0 | 0 |
+| End condition | stopped under override | stopped under override |
+| Final camera-to-box range | 3.50 m | 3.74 m |
+| Brake override frames | 32 | 28 |
+| True lateral tracking RMSE | 0.140 m | 0.047 m |
+| Camera lane-offset estimation RMSE | 0.060 m | 0.039 m |
+| Visual speed estimation RMSE | 1.32 m/s | 0.96 m/s |
+| Stereo obstacle range MAE | 0.38 m | 0.41 m |
+| Frames missing lane or speed | 2 | 3 |
 
-The sensor-driven run produced a lane fit and speed estimate on all 77 frames. **Lane-offset estimation RMSE was 0.147 m** against the map and **speed estimation RMSE was 0.494 m/s** against the actor velocity. These measure the estimators. The 0.210 m tracking RMSE measures how accurately the vehicle actually followed the lane. At the final stop the policy still requested positive acceleration, so the deterministic brake deserves credit for stopping the vehicle.
+SAC requested steering and acceleration. In both runs the deterministic supervisor applied full braking and held the vehicle at rest. Final clearance measures the distance from the left camera to the front-facing surface of the parked vehicle's bounding box. The independent depth camera scored the fixed run as follows.
 
-| Sensor-driven run: reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
+| Reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
 |---|---:|---:|---:|
-| 3-8 m | 37.2% | 0.58 m | 8.28 m |
-| 8-16 m | 56.7% | 1.86 m | 8.75 m |
-| 16-30 m | 61.4% | 6.39 m | 23.19 m |
+| 3 to 8 m | 69.5% | 0.37 m | 7.37 m |
+| 8 to 16 m | 57.2% | 1.57 m | 7.85 m |
+| 16 to 30 m | 63.6% | 5.99 m | 22.42 m |
 
-![Sensor-driven range, override timing and depth errors](results/carla_sensor/media/carla.png)
+![Camera range, override timing and dense depth error](results/carla_sensor/media/carla.png)
 
-Median image processing time was 158 ms per synchronized frame. A coherent obstacle surface remained easier to locate than individual distant pixels. The test used a level straight street with visible paint, one parked obstacle and a fixed simulation step. [Sensor-run measurements](results/carla_sensor/frames.csv) / [Sensor-run metrics](results/carla_sensor/metrics.json)
+Median camera processing time was 328 ms for the fixed run and 296 ms for the adaptive run. One straight road per checkpoint limits conclusions about transfer. [Fixed frame telemetry](results/carla_sensor/frames.csv) / [Adaptive frame telemetry](results/carla_sensor_adaptive/frames.csv)
 
 Two independent checks isolate calibration and matching. Fitting a nonparallel synthetic rig from noisy board corners yielded **0.278 px** held-out 95th-percentile vertical rectification error. On ideal textured planes the depth MAE grew from **0.056 m at 4 m** to **0.772 m at 16 m**. [Calibration results](results/calibration.json) · [Synthetic depth plot](results/media/stereo.png)
 
@@ -46,19 +50,27 @@ Two independent checks isolate calibration and matching. Fitting a nonparallel s
 
 ### Why pure pursuit?
 
-Each controller receives the same reference path, including a predefined bypass on obstacle routes. Pure pursuit gives the experiment a baseline that needs no training. It steers toward a waypoint 6 m ahead, while a separate proportional controller adjusts speed toward 5 m/s. Comparing SAC with this baseline tests what learning adds to the task of following a known path. Choosing a path around an obstacle is a separate planning problem.
+Each controller receives the same image-based estimates of the painted lane, including the visible bypass on obstacle routes. Pure pursuit gives the experiment a baseline that needs no training. It steers toward a waypoint 6 m ahead, while a separate proportional controller adjusts speed toward 5 m/s. Comparing SAC with this baseline tests what learning adds to the task of following a known path. Choosing a path around an obstacle is a separate planning problem.
 
-Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gymnasium obstacle observations use analytic scene geometry. No brake shield was applied during this comparison.
+Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gymnasium renders two grayscale camera images per step. Stereo disparity supplies obstacle range, lane paint supplies the path features, and image motion supplies speed. Rewards and validation decisions use these measured quantities. No brake shield was applied during this comparison.
 
 | Controller | Completed | Collision rate | Tracking RMSE | Mean return | Mean steering change |
 |---|---:|---:|---:|---:|---:|
-| Pure pursuit + proportional speed control | 60/60 | 0% | 0.212 m | 51.27 | 0.0121 |
-| Fixed-distribution SAC | 170/180 | 5.6% | 0.270 m | 28.35 | 0.0398 |
-| Rule-guided adaptive SAC | 180/180 | 0% | 0.263 m | 30.77 | 0.0381 |
+| Pure pursuit + speed control | 45/60 | 0.0% | 0.236 m | -1.38 | 0.0133 |
+| Fixed SAC | 136/180 | 0.6% | 0.360 m | -28.22 | 0.0751 |
+| Rule-guided adaptive SAC | 115/180 | 0.0% | 0.313 m | -35.93 | 0.0696 |
 
-![Tracking, completion and return by training seed](results/media/training-seeds.png)
+![Camera-only training comparison by seed](results/media/training-seeds.png)
 
-**The ten fixed-policy collisions all occurred in obstacle scenarios for training seed 109.** Adaptive training emphasized obstacles in both stages for that seed and completed all 60 routes. The other two seeds already had perfect completion with fixed training. Pure pursuit completed all 60 routes with lower average tracking RMSE (0.212 m versus 0.263 m for adaptive SAC), smoother steering and higher return. Adaptive practice helped SAC in its failure-prone seed, while pure pursuit remained the more accurate tracker overall on these short, mapped routes. Policy latency averaged 0.31 ms for fixed SAC, 0.37 ms for adaptive SAC and 0.005 ms for pure pursuit on this machine. [Per-seed results](results/per_seed.csv) · [Aggregate results](results/aggregate.csv)
+The independent evaluator counts a completion when the vehicle gets within one metre of the 40 m finish without a recorded contact or lane departure. Training and validation use visual progress, a near-obstacle cue and loss of detected lane markings. The reward can disagree with true completion when visual speed drifts or paint becomes ambiguous. The same 60 held-out cases recur for all three training seeds. [Per-seed results](results/per_seed.csv) / [Camera feature accuracy](results/camera_accuracy.json)
+
+| Held-out scene | Fixed SAC finishes | Adaptive SAC finishes | Camera lane-offset RMSE |
+|---|---:|---:|---:|
+| Straight | 55/60 | 54/60 | 0.09 m |
+| Bend | 57/60 | 43/60 | 0.53 m |
+| Obstacle | 24/60 | 18/60 | 0.77 m |
+
+Fixed SAC completed 21 more trials than rule-guided adaptive SAC across the three seeds. Adaptive SAC had a lower average tracking error. Pure pursuit produced the smoothest steering and lowest tracking error of the three. Both learned controllers struggled most on obstacle bypasses. The last column measures lane-estimation error on four held-out pure-pursuit runs per scene. Its increase from 0.09 m on straights to 0.77 m on bypasses identifies a perception weakness worth testing separately. The step budget was fixed in advance. These results measure performance at that budget and leave convergence open.
 
 ![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
 
@@ -66,25 +78,23 @@ Each SAC policy received **12,288 training transitions**. Within each seed, the 
 
 ## What the training agent learned from the logs
 
-The rule-guided supervisor audits validation failures after each stage. Its only decision is which of three scenarios receives 60% of the next stage, with the other two receiving 20% each. The **separate local Qwen2.5-7B arm** selected bends twice. It completed **60/60** seed-37 test routes with **0.215 m** tracking RMSE and **24.69** mean return. On that same seed fixed SAC achieved **0.205 m** and **27.30**.
-
-The LLM correctly identified bends as the highest-error scenario after the common checkpoint. At the second decision it again called bends the highest-error case (0.246 m), although obstacles had reached 0.324 m. The saved decision record exposes the error and the exact training change it caused. This pilot provides no performance advantage for the language-model selector. [LLM decisions and inputs](results/control/llm_decisions.json) · [LLM held-out episodes](results/control/llm_heldout.csv)
+The rule-guided arm reads camera-derived validation failures. In a separate seed-37 experiment, local **Qwen2.5-7B** read the same kinds of metrics and chose bends at both training stages. Each decision allocated 60% of the next stage to bends. That policy completed **54/60** held-out routes with **0.231 m** tracking RMSE. Fixed SAC completed **49/60** on the same seed. This comparison covers one training seed. The model acts only between training stages. [Model reasons and validation inputs](results/control/llm_decisions.json) / [Scored episodes](results/control/llm_heldout.csv)
 
 ## STAR interview summary
 
-**Situation.** A controller can track a simulated route when it knows the lane and obstacle positions exactly. In a camera-driven vehicle, those quantities have to be estimated. I wanted to understand how well a learned controller handled that transition.
+**Situation.** A controller on a simulated road must deal with imperfect measurements of lane position, obstacles and speed. I wanted the learning process to experience those errors from its first step.
 
-**Task.** I set out to answer two questions. Would practicing difficult routes improve a Soft Actor-Critic (SAC) policy under a fixed training budget? Could a frozen policy use sensor measurements to approach a parked car in CARLA?
+**Task.** Train SAC from camera measurements and test whether adaptive practice improves performance under the same training budget.
 
-**Action.** I trained fixed and adaptive versions of SAC from identical checkpoints across three seeds and evaluated them on the same routes alongside pure pursuit. For the CARLA test, I estimated obstacle distance from stereo disparity, fitted the lane center from camera images, and estimated speed from GNSS. I logged both the policy's requested commands and the commands applied by the brake supervisor so I could tell what actually stopped the vehicle.
+**Action.** I rendered stereo training pairs, estimated lane geometry and visual speed, built camera-based rewards and episode endings, and tested that changing hidden state behind identical frames could not change the training signals. I compared fixed SAC, adaptive SAC and pure pursuit, then ran both learned controllers in CARLA with camera-only inputs.
 
-**Result.** Adaptive SAC completed 180 of 180 held-out Gymnasium episodes. Fixed SAC completed 170, with all ten collisions concentrated in one training seed. Pure pursuit still had the lowest average tracking error. In the separate CARLA test, the fixed SAC policy drove one straight approach using sensor inputs. Stereo range error averaged 0.56 m in absolute terms, and the deterministic brake brought the car to a stop with 3.06 m of camera-to-obstacle clearance.
+**Result.** Fixed SAC completed 136/180 held-out trials and adaptive SAC completed 115/180. In CARLA the fixed and adaptive runs recorded 0 and 0 collisions respectively, with 32 and 28 frames of brake override. The action log distinguishes the policy's request from the command that reached the vehicle.
 
 ## System architecture
 
 ### Where reinforcement learning happens
 
-**How the car learns.** In Gymnasium, SAC steers and changes speed. After each move, the simulator shows what happened and gives it a score. Staying close to the path earns a better score. Collisions and leaving the lane hurt it. SAC saves those experiences, practices on a sample of them, and updates how it drives on the next attempt.
+**How the car learns.** In Gymnasium, SAC steers and changes speed. After each move, stereo images show the painted lane and nearby obstacle. Visual odometry estimates movement, and the reward function scores the camera measurements. Staying close to the path earns a better score. Seeing an obstacle very close ahead or losing the lane incurs a penalty. SAC saves those experiences, practices on a sample of them, and updates how it drives on the next attempt.
 
 ```mermaid
 flowchart LR
@@ -106,7 +116,7 @@ flowchart LR
 
 ### How CARLA uses the trained policy
 
-**The live drive uses inference only.** CARLA loads the fixed-distribution checkpoint from training seed 37. At each tick the actor predicts steering and a signed longitudinal command. The brake supervisor can replace that longitudinal command with full braking while retaining the actor's steering. The vehicle's motion produces the next camera pair and ego state. [CARLA control loop](carla_integration/drive.py)
+**The live drive uses inference only.** We tested both the fixed and rule-guided adaptive camera-trained checkpoints from seed 37. At each tick the actor predicts steering and a signed longitudinal command. The brake supervisor can replace that longitudinal command with full braking while retaining the actor's steering. The vehicle's motion produces the next camera pair. [CARLA control loop](carla_integration/drive.py)
 
 ```mermaid
 flowchart TD
@@ -115,21 +125,22 @@ flowchart TD
     Range --> Obs[Control observation]
     RGB --> Lane[Visible lane center and lookahead points]
     Lane --> Obs
-    GNSS[Speed from GNSS fixes] --> Obs
+    RGB --> Motion[Speed from pavement motion]
+    Motion --> Obs
     Obs --> Actor[Trained SAC actor]
     Actor -->|Requested controls| Brake[Deterministic brake supervisor]
     Range -->|Obstacle range| Brake
     Checks[Sensor availability, coverage and frame age] --> Brake
-    GNSS --> Brake
+    Motion --> Brake
     Brake -->|Applied steering, throttle and brake| Ego[CARLA ego vehicle]
     Depth -.-> Eval[Compare estimates with simulator references]
     Range -.-> Eval
     GT[Reference depth, actor box, pose and speed] -.-> Eval
     Lane -.-> Eval
-    GNSS -.-> Eval
+    Motion -.-> Eval
 ```
 
-The training environment generates analytic waypoints and obstacle features. In the sensor-driven CARLA run, the camera supplies lane offset, heading error and local lookahead points. The two cameras supply obstacle range and bearing. GNSS supplies speed. The simulator map is used for scenario setup and evaluation.
+Both training and deployment estimate lane features, speed and obstacle geometry from camera images. The simulator uses its world model to generate scenes and images. During control, the map, actor state and reference depth are isolated from the policy and brake.
 
 ## Reproduce on Windows
 
@@ -140,6 +151,8 @@ uv venv --python 3.12
 uv pip install --python .venv/Scripts/python.exe torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv/Scripts/python.exe -r requirements-control.txt
 $python = ".\.venv\Scripts\python.exe"
+& $python -m evaluation.verify_camera_inputs
+& $python -m evaluation.camera_accuracy
 & $python -m evaluation.calibration
 & $python -m evaluation.stereo_benchmark
 & $python -m evaluation.replay_stereo
@@ -171,4 +184,4 @@ When Town10HD_Opt is ready, run these from the project environment in a second P
 .\.venv\Scripts\python.exe -m evaluation.carla_media --sensor-run
 ```
 
-The live script uses the seed-37 fixed SAC checkpoint. GPU rendering, weather, ambient objects and CPU load can change pixel metrics and wall-clock timings. The included Dockerfile describes a portable CPU experiment environment; the native Windows workflow above was exercised. The [technical report](docs/technical-report.md) covers the geometry, SAC objective, reward, vehicle dynamics, control transfer and limitations.
+The default uses the seed-37 fixed SAC checkpoint. Repeat with `--checkpoint results/control/adaptive.zip --output results/carla_sensor_adaptive --capture .runtime/adaptive_capture` for adaptive SAC. For its media, pass `--run-dir results/carla_sensor_adaptive --capture-dir .runtime/adaptive_capture` to `evaluation.carla_media`. GPU rendering, weather, ambient objects and CPU load can change pixel metrics and wall-clock timings. The included Dockerfile describes a portable CPU experiment environment; the native Windows workflow above was exercised. The [technical report](docs/technical-report.md) covers the geometry, SAC objective, reward, vehicle dynamics, control transfer and limitations.

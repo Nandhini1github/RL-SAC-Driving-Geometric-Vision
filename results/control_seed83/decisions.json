@@ -21,9 +21,9 @@
     "arm": "adaptive",
     "stage": 1,
     "scores": {
-      "straight": 0.08327248966758265,
-      "bend": 0.09795887634019944,
-      "obstacle": 0.09714996121672131
+      "straight": 0.32058814923654594,
+      "bend": 1.0738554000604323,
+      "obstacle": 0.9508091934919973
     },
     "target": "bend",
     "weights": [
@@ -36,9 +36,9 @@
     "arm": "adaptive",
     "stage": 2,
     "scores": {
-      "straight": 0.03854117319101216,
-      "bend": 0.07198169334021817,
-      "obstacle": 0.10886863963942461
+      "straight": 0.10718546514954337,
+      "bend": 0.5387088956428495,
+      "obstacle": 1.018455257762202
     },
     "target": "obstacle",
     "weights": [

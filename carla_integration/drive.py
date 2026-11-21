@@ -15,7 +15,7 @@ from stable_baselines3 import SAC
 
 from geometric_vision.rig import Rectifier, obstacle
 from geometric_vision.lane import LaneCamera
-from carla_integration.speed import GNSSSpeed
+from geometric_vision.odometry import GroundOdometry
 from geometric_vision.stereo import estimate, make_matcher
 from safety.brake import needs_brake
 
@@ -28,31 +28,22 @@ def dot(a,b):
     return a.x*b.x + a.y*b.y + a.z*b.z
 
 
-def choose_route(road):
-    for pose in road.get_spawn_points():
-        wp = road.get_waypoint(pose.location)
-        pts=[wp]
-        for _ in range(21):
-            following=pts[-1].next(2)
-            if len(following)!=1 or following[0].is_junction: break
-            pts.append(following[0])
-        if len(pts)==22 and all(dot(p.transform.get_forward_vector(), wp.transform.get_forward_vector())>0.998 for p in pts):
-            return pts
-    raise RuntimeError("No straight 42 m approach found")
+# Fixed Town10HD scene configuration (metres and degrees).
+EGO_START = (-24.337173, -57.747787, 0.596735)
+PARKED_START = (7.718659, -57.400124, 359.976562)
 
 
 def raw(image):
     return np.frombuffer(image.raw_data,np.uint8).reshape(H,W,4)
 
 
-def run(port, frames):
+def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, capture=RAW):
     cv2.setNumThreads(2)
     torch.set_num_threads(1)
     c=carla.Client("127.0.0.1",port)
     c.set_timeout(30.0)
     world=c.get_world()
     road=world.get_map()
-    route=choose_route(road)
     lib=world.get_blueprint_library()
     old=world.get_settings()
     settings=world.get_settings()
@@ -61,25 +52,25 @@ def run(port, frames):
     actors=[]
     queues=[]
     rows=[]
-    OUT.mkdir(parents=True,exist_ok=True)
-    RAW.mkdir(parents=True,exist_ok=True)
+    output.mkdir(parents=True,exist_ok=True)
+    capture.mkdir(parents=True,exist_ok=True)
     fx=W/(2*tan(radians(80/2)))
     k=np.array([[fx,0,W/2],[0,fx,H/2],[0,0,1.]])
     rect=Rectifier(k,k,None,None,np.eye(3),np.array([-BASELINE,0.,0.]),(W,H))
     matcher=make_matcher()
     lanes=LaneCamera(rect.k, BASELINE)
-    speedometer=GNSSSpeed()
-    model=SAC.load("results/control/fixed",device="cpu")
+    speedometer=GroundOdometry(rect.k)
+    model=SAC.load(checkpoint,device="cpu")
     world.apply_settings(settings)
     try:
-        def vehicle(idx):
-            pose=route[idx].transform
-            pose.location += carla.Location(z=0.5)
+        def vehicle(start):
+            x, y, yaw = start
+            pose = carla.Transform(carla.Location(x=x, y=y, z=0.5), carla.Rotation(yaw=yaw))
             car=world.spawn_actor(lib.find("vehicle.tesla.model3"),pose)
             actors.append(car)
             return car
-        ego=vehicle(0)
-        parked=vehicle(16)
+        ego=vehicle(EGO_START)
+        parked=vehicle(PARKED_START)
         parked.apply_control(carla.VehicleControl(hand_brake=True))
         for _ in range(12): world.tick()
         for kind, side in (("rgb",-BASELINE/2),("rgb",BASELINE/2),("depth",-BASELINE/2)):
@@ -92,14 +83,6 @@ def run(port, frames):
             q=Queue()
             sensor.listen(q.put)
             queues.append(q)
-        gps_bp=lib.find("sensor.other.gnss")
-        for key in ("noise_lat_stddev","noise_lon_stddev"):
-            gps_bp.set_attribute(key,"0.00000006")
-        gps_bp.set_attribute("noise_seed","37")
-        gps=world.spawn_actor(gps_bp,carla.Transform(),attach_to=ego)
-        actors.append(gps)
-        gps_queue=Queue()
-        gps.listen(gps_queue.put)
         collisions=[]
         hit=world.spawn_actor(lib.find("sensor.other.collision"),carla.Transform(),attach_to=ego)
         actors.append(hit)
@@ -110,15 +93,15 @@ def run(port, frames):
         hold=False
         for step in range(frames+8):
             tick=world.tick()
-            imgs=[q.get(timeout=20) for q in queues]
-            fix=gps_queue.get(timeout=20)
-            if len({fix.frame,*(im.frame for im in imgs)})!=1:
-                raise RuntimeError("Unmatched camera/GNSS frame IDs")
-            speed=speedometer.update(fix)
-            if step<8: continue
+            imgs=[q.get(timeout=20) for q in queues[:2]]
+            if len({im.frame for im in imgs})!=1:
+                raise RuntimeError("Unmatched camera frame IDs")
             bgr=raw(imgs[0])[:,:,:3].copy()
             start=perf_counter()
             left,right=rect.apply(cv2.cvtColor(bgr,cv2.COLOR_BGR2GRAY),cv2.cvtColor(raw(imgs[1]),cv2.COLOR_BGRA2GRAY))
+            speed=speedometer.update(left,imgs[0].timestamp)
+            if step<8:
+                continue
             depth=estimate(left,right,matcher,rect.k[0,0],rect.baseline)
             found=obstacle(depth,rect.k)
             lane=lanes.estimate(left)
@@ -145,10 +128,15 @@ def run(port, frames):
             ego.apply_control(carla.VehicleControl(steer=steer,throttle=throttle,brake=pedal))
             prev=np.array([-steer, throttle-pedal])
             # Evaluation begins after control. Pixel-aligned left GT is remapped to the rectified view.
+            reference = queues[2].get(timeout=20)
+            while reference.frame < imgs[0].frame:
+                reference = queues[2].get(timeout=20)
+            if reference.frame != imgs[0].frame:
+                raise RuntimeError("Missing aligned evaluation frame")
             pose=ego.get_transform()
             wp=road.get_waypoint(pose.location)
             ref_err=-dot(pose.location-wp.transform.location,wp.transform.get_right_vector())
-            gt_raw=raw(imgs[2]).astype(np.float32)
+            gt_raw=raw(reference).astype(np.float32)
             gt=(gt_raw[:,:,2]+256*gt_raw[:,:,1]+65536*gt_raw[:,:,0])*(1000/16777215)
             gt=cv2.remap(gt,*rect.maps[0],cv2.INTER_NEAREST)
             target=parked.bounding_box.get_world_vertices(parked.get_transform())
@@ -169,25 +157,25 @@ def run(port, frames):
                             key+"_sq":float(np.square(dif).sum())})
             i=len(rows)
             rows.append(row)
-            cv2.imwrite(str(RAW/f"rgb_{i:03}.jpg"),bgr,[cv2.IMWRITE_JPEG_QUALITY,95])
+            cv2.imwrite(str(capture/f"rgb_{i:03}.jpg"),bgr,[cv2.IMWRITE_JPEG_QUALITY,95])
             color=cv2.applyColorMap(np.uint8(np.nan_to_num(np.clip(1-depth/30,0,1))*255),cv2.COLORMAP_TURBO)
             color[~np.isfinite(depth)]=0
-            cv2.imwrite(str(RAW/f"depth_{i:03}.jpg"),color)
+            cv2.imwrite(str(capture/f"depth_{i:03}.jpg"),color)
             if i in (0,40):
-                cv2.imwrite(str(OUT/f"left_{i}.png"),bgr)
-                cv2.imwrite(str(OUT/f"right_{i}.png"),raw(imgs[1])[:,:,:3])
-                np.savez_compressed(OUT/f"reference_{i}.npz",depth_m=gt.astype(np.float16))
+                cv2.imwrite(str(output/f"left_{i}.png"),bgr)
+                cv2.imwrite(str(output/f"right_{i}.png"),raw(imgs[1])[:,:,:3])
+                np.savez_compressed(output/f"reference_{i}.npz",depth_m=gt.astype(np.float16))
             braking_frames=braking_frames+1 if hold and speed is not None and speed<0.15 else 0
-            if braking_frames>=12 or collisions: break
-        with (OUT/"frames.csv").open("w",newline="") as f:
+            if braking_frames>=12: break
+        with (output/"frames.csv").open("w",newline="") as f:
             writer=csv.DictWriter(f,fieldnames=list(rows[0]))
             writer.writeheader()
             writer.writerows(rows)
-        (OUT/"run.json").write_text(json.dumps(dict(server=c.get_server_version(),map=road.name,
-            width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
-            collisions=len(collisions),route_start=str(route[0].transform),end_reason="collision" if collisions else
-            "stopped under override" if braking_frames>=12 else "frame budget"),indent=2))
-        print((OUT/"run.json").read_text())
+        (output/"run.json").write_text(json.dumps(dict(server=c.get_server_version(),map=road.name,
+            checkpoint=checkpoint.as_posix(),observation_source="stereo RGB and ground-plane visual odometry",width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
+            collisions=len(collisions),ego_spawn_xy_yaw=list(EGO_START),parked_spawn_xy_yaw=list(PARKED_START),
+            end_reason="stopped under override" if braking_frames>=12 else "frame budget"),indent=2))
+        print((output/"run.json").read_text())
     finally:
         for actor in reversed(actors):
             if isinstance(actor,carla.Sensor) and actor.is_listening: actor.stop()
@@ -199,5 +187,8 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--port",type=int,default=2540)
     parser.add_argument("--frames",type=int,default=130)
+    parser.add_argument("--checkpoint", type=Path, default=Path("results/control/fixed.zip"))
+    parser.add_argument("--output", type=Path, default=OUT)
+    parser.add_argument("--capture", type=Path, default=RAW)
     args=parser.parse_args()
-    run(args.port,args.frames)
+    run(args.port,args.frames,args.checkpoint,args.output,args.capture)
