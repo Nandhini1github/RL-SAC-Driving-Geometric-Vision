@@ -16,6 +16,7 @@ from PIL import Image
 CARLA=Path("results/carla_td3")
 MEDIA=CARLA/"media"
 CAPTURE=Path(".runtime/history-capture")
+DASHBOARD_PREVIEW_SIZE = (768, 432)
 INK=(244,242,235)
 MUTED=(189,178,162)
 TEAL=(194,208,92)
@@ -102,12 +103,10 @@ def main():
             label(img,"Warm = near     Cool = far (>30 m)     Black = invalid",1215,720,.71,MUTED)
             speed_text = f"Visual speed   {speed[i]:.1f} m/s" if np.isfinite(speed[i]) else "Visual speed unavailable"
             label(img,speed_text,50,805,1.12)
-            label(img,f"Range   {ranges[i]:.1f} m",1000,805,1.12)
+            label(img,f"Stereo range   {ranges[i]:.1f} m" if np.isfinite(ranges[i]) else "Stereo range unavailable",1000,805,1.12)
             label(img,"BRAKE OVERRIDE" if row.override else "TD3 CONTROL",570,804,.83,AMBER if row.override else TEAL)
-            label(img,"Stereo",1530,805,.82,TEAL)
-            label(img,"Box reference",1660,805,.82,AMBER)
             trace(img,88,845,792,130,[speed],10,[TEAL],i)
-            trace(img,1044,845,792,130,[ranges,truth],30,[TEAL,AMBER],i)
+            trace(img,1044,845,792,130,[ranges],30,[TEAL],i)
             label(img,"0 s",75,1012,.67,MUTED)
             label(img,f"{t[-1]:.1f} s",836,1012,.67,MUTED)
             label(img,"0 s",1028,1012,.67,MUTED)
@@ -115,7 +114,7 @@ def main():
             for _ in range(2+(8 if i in (0,len(df)-1) else 0)):
                 process.stdin.write(img.tobytes())
             if i%3==0:
-                previews.append(Image.fromarray(cv2.cvtColor(cv2.resize(img,(768,432)),cv2.COLOR_BGR2RGB)))
+                previews.append(Image.fromarray(cv2.cvtColor(cv2.resize(img,DASHBOARD_PREVIEW_SIZE,interpolation=cv2.INTER_AREA),cv2.COLOR_BGR2RGB)))
             if i==min(29,len(df)-1):
                 cv2.imwrite(str(MEDIA/"carla-poster.jpg"),img,[cv2.IMWRITE_JPEG_QUALITY,95])
         process.stdin.close()

@@ -8,7 +8,7 @@ Can a car learn steering and acceleration from camera measurements, then use the
 
 [▶ Play the full 1080p CARLA video](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#carla) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
 
-The cyan line follows the center of the lane fitted from visible paint in the left image. On the right, warm colors indicate nearby surfaces, cool colors indicate greater depth, and black pixels have no valid stereo match. The orange range trace uses the parked car’s bounding box for evaluation. The control indicator shows when the brake supervisor overrides TD3. Playback is half speed. The clock shows simulation time.
+The cyan line follows the center of the lane fitted from visible paint in the left image. On the right, warm colors indicate nearby surfaces, cool colors indicate greater depth, and black pixels have no valid stereo match. The range trace shows the distance to the parked car estimated by stereo vision. The control indicator shows when the brake supervisor overrides TD3. Playback is half speed. The clock shows simulation time.
 
 ### TD3 on left and right bends
 

@@ -10,7 +10,7 @@ import imageio_ffmpeg
 import numpy as np
 from PIL import Image
 
-from evaluation.carla_media import AMBER, INK, MUTED, TEAL, label
+from evaluation.carla_media import AMBER, DASHBOARD_PREVIEW_SIZE, INK, MUTED, TEAL, label
 from geometric_vision.rig import obstacle
 from geometric_vision.stereo import estimate_with_disparity, make_matcher
 
@@ -169,7 +169,8 @@ def render(root, capture, dashboard=False):
                     label(frame,f"Valid depth   {valid.mean():.0%}",1590,1063,.71,MUTED)
                 encoder.stdin.write(frame.tobytes())
                 if i%5 == 0:
-                    small=cv2.resize(frame,(704,396),interpolation=cv2.INTER_AREA)
+                    size = DASHBOARD_PREVIEW_SIZE if dashboard else (704,396)
+                    small=cv2.resize(frame,size,interpolation=cv2.INTER_AREA)
                     previews.append(Image.fromarray(cv2.cvtColor(small,cv2.COLOR_BGR2RGB)))
         encoder.stdin.close()
         if encoder.wait():
