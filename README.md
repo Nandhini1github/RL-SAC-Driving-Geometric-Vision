@@ -4,17 +4,17 @@ Can a car learn steering and acceleration from camera measurements, then use the
 
 ## Watch TD3 drive in CARLA
 
-[![Animated replay of TD3 driving toward a parked car, showing the camera-fitted centerline, stereo depth, speed and brake override](results/carla_td3/media/carla-preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla)
+[![Animated replay of TD3 driving toward a parked car, showing the camera-fitted centerline, stereo depth, speed and brake override](results/carla_td3/media/carla-preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#carla)
 
-[▶ Play the full 1080p CARLA video](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
+[▶ Play the full 1080p CARLA video](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#carla) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
 
 The cyan line follows the center of the lane fitted from visible paint in the left image. On the right, warm colors indicate nearby surfaces, cool colors indicate greater depth, and black pixels have no valid stereo match. The orange range trace uses the parked car’s bounding box for evaluation. The control indicator shows when the brake supervisor overrides TD3. Playback is half speed. The clock shows simulation time.
 
 ### TD3 on left and right bends
 
-[![TD3 on a left bend and a right bend in CARLA, with chase and front-camera views](results/carla_bends/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#bends)
+[![TD3 on a left bend and a right bend in CARLA, with chase and front-camera views](results/carla_bends/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends)
 
-[▶ Play the 40-second bend video in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#bends) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_bends/media/td3-bends.mp4)
+[▶ Play the 40-second bend video in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/carla_bends/media/td3-bends.mp4)
 
 The same frozen TD3 weights drove in opposite directions on a curved section of Town10HD_Opt. Each pass starts from rest and runs for 20 simulated seconds. The cyan line on the front camera is a curved fit to visible lane paint. The chase camera shows the car’s position on the road. TD3 receives the fitted lane, visual speed, stereo obstacle measurements and previously applied commands. The map supplies the initial spawn and independent tracking reference.
 
@@ -72,7 +72,7 @@ Both controllers drove the same **600 held-out routes**, with 200 straights, 200
 | TD3 | 598/600 (99.7%) | 14.61 cm | 0 |
 | Pure pursuit | 594/600 (99.0%) | 14.78 cm | 0 |
 
-TD3 finished four additional routes and reduced mean per-route lateral RMSE by **0.17 cm**. On the 594 routes both finished, RMSE was 14.64 cm for TD3 and 14.80 cm for Pure pursuit. The adjusted paired interval for the completion gain spans 0 to 1.5 percentage points, so a tie in completion remains plausible. [Per-route scores and uncertainty](docs/td3-committee.md) · [Watch both controllers on the same obstacle bypass](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#td3)
+TD3 finished four additional routes and reduced mean per-route lateral RMSE by **0.17 cm**. On the 594 routes both finished, RMSE was 14.64 cm for TD3 and 14.80 cm for Pure pursuit. The adjusted paired interval for the completion gain spans 0 to 1.5 percentage points, so a tie in completion remains plausible. [Per-route scores and uncertainty](docs/td3-committee.md) · [Watch both controllers on the same obstacle bypass](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#td3)
 
 ![Unfinished routes and lateral tracking RMSE by scene for TD3 and Pure pursuit](results/tracking/comparison.png)
 
