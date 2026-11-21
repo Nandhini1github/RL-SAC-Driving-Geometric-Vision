@@ -17,15 +17,15 @@ https://github.com/user-attachments/assets/c6cfebe8-f0f7-4b22-98b1-e01f7c7706fa
 
 The cyan line is the camera-fitted lane used for steering. Speed comes from pavement motion between left-camera frames. Stereo disparity supplies obstacle range and bearing. The adjacent plot overlays the independent reference range for evaluation.
 
-### Adaptive SAC in CARLA
+### Camera-based SAC with adaptive training in CARLA
 
-[![Adaptive SAC approach to the same parked vehicle, including the brake override and stop.](results/carla_sensor_adaptive/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#adaptive)
+[![Camera-based SAC with adaptive training approaches to the same parked vehicle, including the brake override and stop.](results/carla_sensor_adaptive/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#adaptive)
 
 ## Geometric vision on a live CARLA approach
 
 Both seed-37 policies used the same camera rig, nominal 32 m parked-vehicle scenario, and deterministic brake. Fixed spawn coordinates placed the vehicles before driving. At each control step SAC received measured lane offset, heading, three lookaheads, visual speed, stereo obstacle features and its own preceding commands. The evaluator read actor velocity, pose, the box geometry, map centerline and reference depth after each command. Each column represents one run.
 
-| Metric | Fixed SAC | Rule-guided adaptive SAC |
+| Metric | Camera-based SAC with fixed training | Camera-based SAC with adaptive training |
 |---|---:|---:|
 | Frames scored | 81 | 78 |
 | Recorded collisions | 0 | 0 |
@@ -63,8 +63,8 @@ Each SAC policy received **12,288 training transitions**. Within each seed, the 
 | Controller | Completed | Collision rate | Tracking RMSE | Mean return | Mean steering change |
 |---|---:|---:|---:|---:|---:|
 | Pure pursuit + speed control | 45/60 | 0.0% | 0.236 m | -1.38 | 0.0133 |
-| Fixed SAC | 136/180 | 0.6% | 0.360 m | -28.22 | 0.0751 |
-| Rule-guided adaptive SAC | 115/180 | 0.0% | 0.313 m | -35.93 | 0.0696 |
+| Camera-based SAC with fixed training | 136/180 | 0.6% | 0.360 m | -28.22 | 0.0751 |
+| Camera-based SAC with adaptive training | 115/180 | 0.0% | 0.313 m | -35.93 | 0.0696 |
 
 ![Camera-only training comparison by seed](results/media/training-seeds.png)
 
@@ -76,7 +76,7 @@ The independent evaluator counts a completion when the vehicle gets within one m
 | Bend | 57/60 | 43/60 | 0.53 m |
 | Obstacle | 24/60 | 18/60 | 0.77 m |
 
-Fixed SAC completed 21 more trials than rule-guided adaptive SAC across the three seeds. Adaptive SAC had a lower average tracking error. Pure pursuit produced the smoothest steering and lowest tracking error of the three. Both learned controllers struggled most on obstacle bypasses. The last column measures lane-estimation error on four held-out pure-pursuit runs per scene. Its increase from 0.09 m on straights to 0.77 m on bypasses identifies a perception weakness worth testing separately. The step budget was fixed in advance. These results measure performance at that budget and leave convergence open.
+Across the three seeds, SAC completed 21 more trials with fixed training than with adaptive training. Adaptive SAC had a lower average tracking error. Pure pursuit produced the smoothest steering and lowest tracking error of the three. Both learned controllers struggled most on obstacle bypasses. The last column measures lane-estimation error on four held-out pure-pursuit runs per scene. Its increase from 0.09 m on straights to 0.77 m on bypasses identifies a perception weakness worth testing separately. The step budget was fixed in advance. These results measure performance at that budget and leave convergence open.
 
 ![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
 
@@ -84,7 +84,7 @@ Fixed SAC completed 21 more trials than rule-guided adaptive SAC across the thre
 
 ## What the training agent learned from the logs
 
-The rule-guided arm reads camera-derived validation failures. In a separate seed-37 experiment, local **Qwen2.5-7B** read the same kinds of metrics and chose bends at both training stages. Each decision allocated 60% of the next stage to bends. That policy completed **54/60** held-out routes with **0.231 m** tracking RMSE. Fixed SAC completed **49/60** on the same seed. This comparison covers one training seed. The model acts only between training stages. [Model reasons and validation inputs](results/control/llm_decisions.json) / [Scored episodes](results/control/llm_heldout.csv)
+During adaptive training, a fixed rule uses camera-derived validation scores to choose which scenario gets more practice. During driving, SAC uses camera measurements to choose steering and acceleration. In a separate seed-37 experiment, local **Qwen2.5-7B** read the same kinds of metrics and chose bends at both training stages. Each decision allocated 60% of the next stage to bends. That policy completed **54/60** held-out routes with **0.231 m** tracking RMSE. Fixed SAC completed **49/60** on the same seed. This comparison covers one training seed. The model acts only between training stages. [Model reasons and validation inputs](results/control/llm_decisions.json) / [Scored episodes](results/control/llm_heldout.csv)
 
 ## STAR interview summary
 
@@ -122,7 +122,7 @@ flowchart LR
 
 ### How CARLA uses the trained policy
 
-**The live drive uses inference only.** We tested both the fixed and rule-guided adaptive camera-trained checkpoints from seed 37. At each tick the actor predicts steering and a signed longitudinal command. The brake supervisor can replace that longitudinal command with full braking while retaining the actor's steering. The vehicle's motion produces the next camera pair. [CARLA control loop](carla_integration/drive.py)
+**The live drive uses inference only.** We tested two camera-based policies from seed 37, one trained with a fixed scenario mix and one with an adaptive mix. At each tick the actor predicts steering and a signed longitudinal command. The brake supervisor can replace that longitudinal command with full braking while retaining the actor's steering. The vehicle's motion produces the next camera pair. [CARLA control loop](carla_integration/drive.py)
 
 ```mermaid
 flowchart TD

@@ -33,9 +33,9 @@
       <p>The cyan line follows the lane estimated from the left camera. The orange brake indicator shows when the safety supervisor took over. Final camera-to-obstacle clearance was 3.50 m.</p>
     </section>
     <section id="adaptive">
-      <h2>Adaptive SAC in CARLA</h2>
-      <video aria-label="Adaptive SAC braking in CARLA" src="results/carla_sensor_adaptive/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
-      <p>The rule-guided policy drove the same straight approach with the same brake supervisor. Final camera-to-obstacle clearance was 3.74 m.</p>
+      <h2>Camera-based SAC with adaptive training in CARLA</h2>
+      <video aria-label="Camera-based SAC with adaptive training braking in CARLA" src="results/carla_sensor_adaptive/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
+      <p>During training, a fixed rule chose which scenarios to practice more often. Here the trained policy uses camera measurements to drive the same approach with the same brake supervisor. Final camera-to-obstacle clearance was 3.74 m.</p>
     </section>
     <section id="comparison">
       <h2>Three controllers on one obstacle bypass</h2>
