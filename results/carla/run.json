@@ -1,0 +1,13 @@
+{
+  "server": "1.0",
+  "map": "Carla/Maps/Town10HD_Opt",
+  "width": 960,
+  "height": 540,
+  "baseline_m": 0.32,
+  "hfov_deg": 80,
+  "dt_s": 0.1,
+  "frames": 72,
+  "collisions": 0,
+  "route_start": "Transform(Location(x=-24.337173, y=-57.747787, z=0.000000), Rotation(pitch=0.000000, yaw=0.596735, roll=0.000000))",
+  "end_reason": "stopped under override"
+}

@@ -1,0 +1,13 @@
+{
+  "dataset": "projected synthetic chessboard corners with known intrinsics",
+  "seed": 814,
+  "train_boards": 36,
+  "test_boards": 12,
+  "corner_noise_sd_px": 0.1,
+  "fitted_reprojection_rms_px": 0.13924724017809506,
+  "baseline_true_m": 0.3200156246185489,
+  "baseline_fit_m": 0.31985434063426227,
+  "rotation_error_deg": 0.0062537974924410916,
+  "heldout_median_vertical_px": 0.0959014892578125,
+  "heldout_p95_vertical_px": 0.2781520187854767
+}

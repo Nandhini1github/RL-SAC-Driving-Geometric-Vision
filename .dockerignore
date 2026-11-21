@@ -1,0 +1,6 @@
+.venv
+.git
+.local-simulator
+.runtime
+results
+**/__pycache__

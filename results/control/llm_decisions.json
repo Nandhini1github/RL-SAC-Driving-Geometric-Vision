@@ -1,0 +1,70 @@
+[
+  {
+    "stage": 1,
+    "source": "qwen2.5:7b",
+    "target": "bend",
+    "reason": "The 'bend' scenario has the highest RMSE (Root Mean Square Error) at 0.2559 meters, indicating the largest deviation from the ideal path. This suggests that the system performs well in straight sections and with obstacles but struggles more in curved sections, making it a priority for improvement.",
+    "metrics": {
+      "straight": {
+        "success": 1.0,
+        "collision": 0.0,
+        "departure": 0.0,
+        "rmse_m": 0.1417,
+        "steering_delta": 0.0107
+      },
+      "bend": {
+        "success": 1.0,
+        "collision": 0.0,
+        "departure": 0.0,
+        "rmse_m": 0.2559,
+        "steering_delta": 0.0365
+      },
+      "obstacle": {
+        "success": 1.0,
+        "collision": 0.0,
+        "departure": 0.0,
+        "rmse_m": 0.2366,
+        "steering_delta": 0.0411
+      }
+    },
+    "weights": [
+      0.2,
+      0.6,
+      0.2
+    ]
+  },
+  {
+    "stage": 2,
+    "source": "qwen2.5:7b",
+    "target": "bend",
+    "reason": "The 'bend' scenario has the highest RMSE (Root Mean Square Error) at 0.2461 meters, indicating the largest deviation from the ideal path. This suggests that the system performs less accurately in bends, making it a critical area for improvement.",
+    "metrics": {
+      "straight": {
+        "success": 1.0,
+        "collision": 0.0,
+        "departure": 0.0,
+        "rmse_m": 0.0985,
+        "steering_delta": 0.0174
+      },
+      "bend": {
+        "success": 1.0,
+        "collision": 0.0,
+        "departure": 0.0,
+        "rmse_m": 0.2461,
+        "steering_delta": 0.0425
+      },
+      "obstacle": {
+        "success": 1.0,
+        "collision": 0.0,
+        "departure": 0.0,
+        "rmse_m": 0.3236,
+        "steering_delta": 0.0495
+      }
+    },
+    "weights": [
+      0.2,
+      0.6,
+      0.2
+    ]
+  }
+]

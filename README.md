@@ -1,45 +1,115 @@
-# Stereo perception and trajectory tracking in CARLA 1.0
+# Agentic-VLA-SAC-Driving
 
-This Windows project investigates whether a bounded training supervisor improves a SAC controller's ability to follow a reference path around obstacles. The first executable milestone measures stereo depth on known synthetic planes. SAC, the supervisor and live CARLA sensor capture are planned experiments.
+**Can a stereo range estimate transfer into a learned driving controller, and does adaptive training improve that controller?** This project tests both questions with a Windows CARLA 1.0 stereo rig, a Gymnasium bicycle model, and Soft Actor-Critic (SAC). Three training seeds compare fixed and adaptive curricula. A separate experiment gives a local language model bounded authority over scenario sampling.
 
-## Run the first experiment
+[![CARLA stereo braking replay](results/media/carla-poster.jpg)](https://github.com/Nandhini1github/Agentic-VLA-SAC-Driving/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)
 
-From this directory in PowerShell, using Python 3.12 and uv:
+**[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/Agentic-VLA-SAC-Driving/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/Agentic-VLA-SAC-Driving/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
+
+The CARLA film displays both 960 × 540 sensor panels at native resolution. Its half-speed playback shows the speed response and exact brake-override frames. The second film replays three controllers on the same held-out Gym route. OpenDriveVLA remains a researched extension. All reference trajectories in these experiments are deterministic.
+
+## Geometric vision on a live CARLA approach
+
+A Tesla Model 3 approached a stationary vehicle on Town10HD. The controller received speed, map-relative tracking features and a corridor obstacle estimate from the synchronized RGB stereo pair. The aligned depth camera and parked vehicle bounding box supplied evaluation references. The final run reached **9.48 m/s**, recorded **zero collisions** and stopped **3.16 m** from the parked box, measured forward from the left camera. The deterministic brake overrode SAC on **33 of 72 frames**. On the final frame SAC still requested **+0.91** normalized longitudinal command.
+
+| Reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
+|---|---:|---:|---:|
+| 3–8 m | 38.4% | 0.52 m | 7.84 m |
+| 8–16 m | 56.8% | 1.66 m | 8.04 m |
+| 16–30 m | 60.6% | 5.98 m | 21.91 m |
+
+![CARLA measured range, override timing and depth error](results/media/carla.png)
+
+The stereo estimator returned a corridor surface in all 72 frames. Its forward range had **0.44 m MAE** and **0.63 m RMSE** against the parked box front. The dense depth map was less reliable, particularly at long range. Small disparity errors amplify with depth, and the gap between MAE and RMSE shows that some accepted correspondences were badly wrong. Median geometry processing latency was **186 ms** at 960 × 540. The run used synchronous stepping at 0.1 simulation seconds per frame. This single approach establishes a working integration with a brake override. [Frame-level measurements](results/carla/frames.csv) · [Metrics](results/carla/metrics.json) · [Replayable image pairs](results/carla)
+
+Two independent checks isolate calibration and matching. Fitting a nonparallel synthetic rig from noisy board corners yielded **0.278 px** held-out 95th-percentile vertical rectification error. On ideal textured planes the depth MAE grew from **0.056 m at 4 m** to **0.772 m at 16 m**. [Calibration results](results/calibration.json) · [Synthetic depth plot](results/media/stereo.png)
+
+## Reinforcement learning on held-out routes
+
+Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gym obstacle observations use analytic scene geometry. No brake shield was applied during this comparison.
+
+| Controller | Completed | Collision rate | Tracking RMSE | Mean return | Mean steering change |
+|---|---:|---:|---:|---:|---:|
+| Pure pursuit + proportional speed control | 60/60 | 0% | 0.212 m | 51.27 | 0.0121 |
+| Fixed-distribution SAC | 170/180 | 5.6% | 0.270 m | 28.35 | 0.0398 |
+| Rule-guided adaptive SAC | 180/180 | 0% | 0.263 m | 30.77 | 0.0381 |
+
+![Tracking, completion and return by training seed](results/media/training-seeds.png)
+
+**The ten fixed-policy collisions all occurred in obstacle scenarios for training seed 109.** Adaptive training emphasized obstacles in both stages for that seed and completed all 60 routes. The other two seeds already had perfect completion with fixed training. Pure pursuit achieved the best overall tracking error, return and steering smoothness. These are short, mapped routes with a supplied bypass path. The result supports a curriculum effect in one failure-prone seed and shows why a classical baseline matters. Policy latency averaged 0.31 ms for fixed SAC, 0.37 ms for adaptive SAC and 0.005 ms for pure pursuit on this machine. [Per-seed results](results/per_seed.csv) · [Aggregate results](results/aggregate.csv)
+
+![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
+
+![Three controllers on the same held-out route](results/media/controllers.gif)
+
+## What the training agent learned from the logs
+
+The rule-guided supervisor audits validation failures after each stage. Its only decision is which of three scenarios receives 60% of the next stage, with the other two receiving 20% each. The **separate local Qwen2.5-7B arm** selected bends twice. It completed **60/60** seed-37 test routes with **0.215 m** tracking RMSE and **24.69** mean return. On that same seed fixed SAC achieved **0.205 m** and **27.30**.
+
+The LLM correctly identified bends as the highest-error scenario after the common checkpoint. At the second decision it again called bends the highest-error case (0.246 m), although obstacles had reached 0.324 m. The saved decision record exposes the error and the exact training change it caused. This pilot provides no performance advantage for the language-model selector. [LLM decisions and inputs](results/control/llm_decisions.json) · [LLM held-out episodes](results/control/llm_heldout.csv)
+
+## System architecture
+
+```mermaid
+flowchart LR
+    RGB[CARLA stereo RGB] --> Rect[Rectification and SGBM]
+    Rect --> Point[3D corridor obstacle]
+    Point --> Obs[Control observation]
+    Ref[Deterministic waypoints and ego state] --> Obs
+    Obs --> SAC[SAC policy]
+    SAC --> Brake[Deterministic brake]
+    Point --> Brake
+    Brake --> Car[CARLA ego vehicle]
+    Car --> RGB
+    GT[Depth sensor and actor box] --> Eval[Geometry evaluation]
+    Point --> Eval
+    Gym[Gym scenario sampler] --> Train[SAC training]
+    Train --> Val[Validation routes]
+    Val --> Agent[Rule or local LLM supervisor]
+    Agent --> Gym
+    Train --> SAC
+```
+
+OpenDriveVLA-0.5B has a published, gated checkpoint and an official nuScenes evaluator. It consumes UniAD data and produces decoded answers from which the evaluator extracts six waypoints. The released Python 3.10 / PyTorch 2.1.2 custom-operator stack poses a compatibility risk on the RTX 5060 Laptop GPU. We did not run pretrained inference. The tested CARLA path uses map references and the Gym path uses analytic waypoints. [Upstream audit and exact dependencies](docs/opendrivevla.md)
+
+## Reproduce on Windows
+
+Tested with Python 3.12.12, Windows, CPU PyTorch 2.8.0 and an RTX 5060 Laptop GPU (8 GB) for CARLA rendering. From this repository in PowerShell:
 
 ```powershell
 uv venv --python 3.12
-uv pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m evaluation.stereo_benchmark
+uv pip install --python .venv/Scripts/python.exe torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+uv pip install --python .venv/Scripts/python.exe -r requirements-control.txt
+$python = ".\.venv\Scripts\python.exe"
+& $python -m evaluation.calibration
+& $python -m evaluation.stereo_benchmark
+& $python -m evaluation.replay_stereo
 ```
 
-The run writes [per-distance metrics](results/stereo_synthetic.json). It uses ten scored image pairs per distance plus one warm-up, 480 × 240 pixels, independent random textures, a fractional horizontal shift and noise in the right image. OpenCV runs on one CPU thread. Runtime covers matching and depth conversion. Coverage counts finite estimates across the whole left frame, including the search border. MAE and RMSE cover finite estimates. These inputs assume ideal rectification and contain no foreground occlusion or moving actors.
+The last command runs obstacle localization on the **published stereo frames** and then scores depth against the saved references. It works without a running simulator.
 
-With rectified identical cameras, disparity is left minus right horizontal pixel position. Optical depth is Z = fB/d for focal length f in pixels and baseline B in metres. OpenCV returns fixed-point disparity with scale 16. Invalid estimates remain NaN. The left optical frame uses X = (u − cx)Z/fx to the right and Y = (v − cy)Z/fy down. Approximate depth uncertainty grows as Z² σd/(fB), which motivates reporting error by range.
+```powershell
+foreach ($trial in 37,83,109) { & $python -m sac_training.experiment --seed $trial }
+& $python -m evaluation.figures
+& $python -m evaluation.across_seeds
+& $python -m evaluation.rl_video
+```
 
-## Windows environment
+Each training directory contains episode logs, validations, final tests, decisions and checkpoints. Training recreates the local common replay buffer. For the optional local LLM experiment, run a local Ollama server with `qwen2.5:7b` installed, then run `& $python -m agentic_supervisor.local_llm` after training seed 37. The decision log identifies the source if the model is unavailable and the deterministic selector takes over.
 
-The inspected CARLA 1.0 Win64 archive includes the cp312 win_amd64 wheel. Install that wheel from the same shipping package as the server into the project environment for live experiments. The local client returned version 1.0. The server probe on localhost port 2000 timed out. Hardware reported an RTX 5060 Laptop GPU, 8151 MiB, driver 610.60.
+For live driving, set `$carlaDir` to an extracted **CARLA 1.0 Win64 shipping** directory. Use its matching cp312 Windows client wheel and a dedicated server. The capture temporarily enables synchronous stepping and restores world settings on exit.
 
-## OpenDriveVLA feasibility
+```powershell
+$wheel = Get-ChildItem "$carlaDir/PythonAPI/carla/dist/carla-1.0-cp312-cp312-win_amd64.whl"
+uv pip install --python .venv/Scripts/python.exe $wheel.FullName
+& "$carlaDir/CarlaUnreal.exe" -RenderOffScreen -nosound -quality-level=Low -carla-rpc-port=2540
+```
 
-The 0.5B model is gated on Hugging Face. The listing shows a 1.47 GB weights file. End-to-end peak VRAM on this GPU remains unknown. The official one-GPU launcher uses torchrun, NCCL, BF16 and DeepSpeed. Its loader combines token IDs with UniAD data or feature files and instance indices. The data guide expects nuScenes trainval, CAN bus, maps, temporal infos and a cache. Predictions are JSON lines with decoded answers. The evaluator extracts six numeric coordinate pairs and can pad or truncate answers. Before control, check original point count, finite values, units, frame, timestep and freshness. [Checkpoint](https://huggingface.co/OpenDriveVLA/OpenDriveVLA-0.5B/tree/main) · [Inference code](https://github.com/DriveVLA/OpenDriveVLA/blob/main/drivevla/inference_drivevla.py) · [Data preparation](https://github.com/DriveVLA/OpenDriveVLA/blob/main/docs/2_DATA_PREP.md) · [Trajectory parser](https://github.com/DriveVLA/OpenDriveVLA/blob/main/drivevla/utils/trajectory_utils.py)
+When Town10HD_Opt is ready, run these from the project environment in a second PowerShell window:
 
-The installation guide uses Python 3.10, torch 2.1.2, a CUDA toolkit and GCC ≥5, patched MMCV 1.7.2 with ops and patched MMDetection3D 1.0.0rc6. It pins mmdet 2.26.0, mmsegmentation 0.29.1, mmengine 0.9.0, motmetrics 1.4.0, casadi 3.6.0, scipy 1.10.1 and scikit-image 0.19.3. The manifest additionally specifies torchvision 0.16.2, DeepSpeed 0.14.2 and Transformers commit 1c39974a4c4036fd641bc1191cc32799f85715a4 among its extras. CUDA_HOME is required to compile operators. The sample toolkit path is only an example. [Install guide](https://github.com/DriveVLA/OpenDriveVLA/blob/main/docs/1_INSTALL.md) · [Full dependency manifest](https://github.com/DriveVLA/OpenDriveVLA/blob/main/pyproject.toml)
+```powershell
+.\.venv\Scripts\python.exe -m carla_integration.drive --port 2540
+.\.venv\Scripts\python.exe -m evaluation.carla_media
+```
 
-PyTorch announced Blackwell support with 2.7 and CUDA 12.8. Moving the legacy stack into a Linux container would address shell and NCCL assumptions while leaving custom kernel compatibility to verify. Treat local VLA execution as an experiment. With authorized weights, prepared inputs and compatible Linux compute, run the published single-GPU command first, retain raw predictions and measure peak allocated/reserved memory. Until then label the reference source deterministic. [PyTorch release](https://pytorch.org/blog/pytorch-2-7/) · [Official evaluation example](https://github.com/DriveVLA/OpenDriveVLA/blob/main/docs/3_EVAL.md)
-
-## Seven-day experiment
-
-| Day | Checkpoint | Fallback or acceptance criterion |
-|---|---|---|
-| 1 | Verify hardware, client, checkpoint access and stereo benchmark. | Keep the VLA frozen. Proceed with deterministic reference paths while access or compatibility is unresolved. |
-| 2 | Capture synchronized CARLA RGB stereo and aligned evaluation depth. Derive calibration from FOV and measured sensor transforms, rectify, check vertical residuals and estimate obstacle range from RGB disparity. | Replay recorded pairs offline. Report valid coverage, depth MAE/RMSE by range, obstacle range error and latency. Verify reference depth convention against a known plane. |
-| 3 | Build a seeded Gymnasium bicycle model and a pure-pursuit plus speed-PID baseline. Validate reset, action limits and termination on straight, bend and obstacle routes. | Use deterministic waypoints with source, timestamp and ego-frame metres. Label any analytic obstacle observation as a simulator baseline. |
-| 4 | Train state-vector SAC. Save configuration, seed, checkpoint, replay buffer and learning curves. | Evaluate the baseline and deterministic SAC actions on identical routes. Check inference latency, lateral RMSE, collision rate, completion and action changes. |
-| 5 | Fork fixed and adaptive training from the same checkpoint and buffer. At fixed intervals select among predefined scenario mixtures using validation failures. | Log evidence, bounded proposal, applied setting and outcome. A rule-based selector is the fallback for LLM proposals. Keep reward and safety settings fixed. |
-| 6 | Feed stereo range, bearing and validity plus path errors and speed to the controller. Apply deterministic braking for stale perception or insufficient stopping distance. Log requested and applied commands. | Record an offline perception replay and separate Gym closed-loop rollouts if live integration fails. Keep nuScenes VLA replay labelled open-loop. |
-| 7 | Evaluate on held-out route seeds, export metrics and curves, record video and write the report. | Match environment steps, gradient updates, evaluation cases and shield settings across training arms. Report per-seed outcomes and intervention counts. |
-
-Core deliverables are measured stereo, a trained controller, a classical baseline, a bounded supervisor and reproducible evaluation. Live VLA-to-CARLA inference, MPC, ROS and VLA fine-tuning are outside the core week. The architecture uses parallel reference and perception inputs to SAC. The supervisor reads validation metrics between training stages and never writes control commands.
-
-For the bicycle model, use ẋ = v cos ψ, ẏ = v sin ψ, ψ̇ = v tan δ/L and v̇ = a. Scale normalized actions into steering angle δ and signed acceleration a. Use route arc-length progress as the positive dense reward, subtract weighted squared lateral/heading errors, acceleration magnitude and steering changes, and add terminal collision, departure and success terms. Fix coefficients before comparing curricula. SAC optimizes expected discounted reward plus policy entropy, using replayed transitions and the smaller of two target critic estimates. Tune on validation seeds and reserve final test routes for reporting.
+The live script uses the seed-37 fixed SAC checkpoint. GPU rendering, weather, ambient objects and CPU load can change pixel metrics and wall-clock timings. The included Dockerfile describes a portable CPU experiment environment; the native Windows workflow above was exercised. The [technical report](docs/technical-report.md) covers the geometry, SAC objective, reward, vehicle dynamics, control transfer and limitations.
