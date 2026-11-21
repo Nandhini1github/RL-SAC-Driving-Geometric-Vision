@@ -158,11 +158,14 @@ def train(seed):
 
 def test(arm, seed):
     actor = None
-    if arm != "pursuit":
+    if arm == "residual":
+        from stable_baselines3 import SAC
+        actor = SAC.load(Path("results/residual")/str(seed)/"selected", device="cpu")
+    elif arm != "pursuit":
         actor = CameraActor(torch.zeros(11), torch.ones(11))
         actor.load_state_dict(torch.load(OUT/str(seed)/f"{arm}.pt", weights_only=True))
         actor.eval()
-    rows = rollouts(SETTINGS, TEST, actor, reference=True, standalone=actor is not None)
+    rows = rollouts(SETTINGS, TEST, actor, reference=True, standalone=arm in ("td3", "clone"))
     target = OUT/("pursuit.csv" if actor is None else f"{seed}/{arm}.csv")
     save_csv(target, rows)
     print(arm, seed, sum(r["success"] for r in rows), "/", len(rows), flush=True)
@@ -172,7 +175,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("collect", "train", "test"))
     parser.add_argument("--seed", type=int, choices=SEEDS, default=37)
-    parser.add_argument("--arm", choices=("pursuit", "td3", "clone"), default="pursuit")
+    parser.add_argument("--arm", choices=("pursuit", "td3", "clone", "residual"), default="pursuit")
     args = parser.parse_args()
     torch.set_num_threads(1)
     OUT.mkdir(parents=True, exist_ok=True)

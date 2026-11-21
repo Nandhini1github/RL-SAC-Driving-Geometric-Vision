@@ -13,7 +13,7 @@ The task is the existing 40 m camera-based Gymnasium route. The primary outcome 
 * Use seeds 37, 83 and 109, and share the training dataset. Choose from the warm-start actor and four subsequent checkpoints per branch using 30 camera-scored validation cases on seeds 6700–6709. Rank by visual completions, then fewer visual hazards, then lower visual lane RMSE. Keep the earlier checkpoint in a tie. Log whether the warm-start policy won.
 * Freeze all selected weights before evaluating seeds 22000–22059 in each of three scenes (180 new routes). Compare on matched scene and seed and include all runs. Resample route seeds in blocks that retain all three scenes, and resample the three training seeds. The geometric teacher is scored once on the 180 routes.
 
-The controllers and safety criteria in this experiment are unchanged from the camera route task apart from the learned action policies. The CARLA films illustrate the earlier SAC policies. [TD3 paper](https://proceedings.mlr.press/v80/fujimoto18a.html) · [TD3+BC paper](https://arxiv.org/abs/2106.06860)
+As a secondary comparison, also replay the frozen residual SAC checkpoints from the previous study on these same routes. All arms use the same environment and final scoring criteria. The CARLA films illustrate the earlier SAC policies. [TD3 paper](https://proceedings.mlr.press/v80/fujimoto18a.html) · [TD3+BC paper](https://arxiv.org/abs/2106.06860)
 
 ## Reproduce
 
@@ -23,7 +23,7 @@ $py = ".\.venv\Scripts\python.exe"
 foreach ($seed in 37,83,109) { & $py -m sac_training.td3_camera train --seed $seed }
 & $py -m sac_training.td3_camera test --arm pursuit
 foreach ($seed in 37,83,109) {
-    foreach ($arm in 'td3','clone') { & $py -m sac_training.td3_camera test --arm $arm --seed $seed }
+    foreach ($arm in 'td3','clone','residual') { & $py -m sac_training.td3_camera test --arm $arm --seed $seed }
 }
 & $py -m evaluation.td3_results
 ```
