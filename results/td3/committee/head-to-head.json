@@ -1,0 +1,42 @@
+{
+  "controllers": {
+    "td3_median": {
+      "finishes": 598,
+      "episodes": 600,
+      "contacts": 0,
+      "mean_episode_rmse_m": 0.21791686333479496,
+      "camera_loss_endings": 0,
+      "finishes_by_scene": {
+        "bend": 200,
+        "obstacle": 199,
+        "straight": 199
+      }
+    },
+    "pursuit": {
+      "finishes": 584,
+      "episodes": 600,
+      "contacts": 0,
+      "mean_episode_rmse_m": 0.17399380793492022,
+      "camera_loss_endings": 13,
+      "finishes_by_scene": {
+        "bend": 189,
+        "obstacle": 198,
+        "straight": 197
+      }
+    }
+  },
+  "paired_td3_minus_control": {
+    "pursuit": {
+      "gain_pp": 2.3333333333333335,
+      "simultaneous_interval_pp": [
+        0.8333333333333334,
+        4.0
+      ],
+      "td3_only_finishes": 16,
+      "other_only_finishes": 2,
+      "joint_finishes": 582,
+      "paired_arrival_difference_s": 0.06597938144329892
+    }
+  },
+  "meets_criterion": true
+}

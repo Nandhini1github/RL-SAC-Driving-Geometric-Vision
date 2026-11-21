@@ -4,6 +4,12 @@
 
 ### TD3 versus its driving teacher
 
+**The TD3 ensemble finished 598 of 600 held-out routes (99.7%). Its tuned pure-pursuit teacher finished 584 (97.3%). Both recorded zero contacts.** At each step, three independently initialized TD3 policies see the same camera features. The car takes the middle of their three steering commands and the middle of their three acceleration commands. The three policies had already been trained and frozen before this test.
+
+The clearest gain came on bends, where TD3 completed **200/200** routes and its teacher completed **189/200**. Across all scenes, the paired completion gain was **2.33 percentage points** (adjusted interval **+0.83 to +4.00**). The teacher tracked the centerline more closely, with lateral RMSE of 0.174 m versus 0.218 m. An imitation-only ensemble completed 586/600 on the same cases. [Per-route scores and analysis](docs/td3-committee.md)
+
+![Unfinished routes out of 200 per scene for the TD3 ensemble and its tuned teacher](results/td3/committee/head-to-head.png)
+
 The head-to-head uses the validation-tuned teacher with a 4.5 m lookahead and a 4.0 m/s speed target. The same cameras, route seeds, action limits and finish rule apply to both controllers. The independent evaluator counts a finish when the car reaches 39 m without contact or lane departure. [Benchmark protocol and additional controls](docs/td3-committee.md)
 
 An earlier replication evaluated the three TD3 policies individually on 300 routes each. They completed 880/900 trials (97.8%) with zero recorded contacts. Their teacher completed 288/300 (96.0%). The paired interval included zero. [Replication and limitations](docs/td3-experiment.md)

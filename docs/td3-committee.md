@@ -9,7 +9,23 @@ In the earlier 300-route replication, one of the three frozen TD3 actors account
 * The primary metric is clean route completion. Report the raw counts separately from the evidence for superiority. To establish a consistent advantage, require a positive lower confidence bound against each primary comparator and no additional observed contacts. Use 20,000 paired bootstrap samples grouped by route seed, with all three scenes kept together, and the originally specified percentile limits (0.833rd and 99.167th percentiles). Report time to the finish on jointly successful routes and lateral tracking RMSE as secondary outcomes.
 * This is a comparison of these specific already-trained controllers in Gymnasium. The three actors constitute one deployed committee. They do not yield three independent replications of committee training.
 
-## Reproduce the interview head-to-head
+## What happened on the 600 routes?
+
+| Result on the same 600 routes | TD3 ensemble | Tuned pure pursuit |
+|---|---:|---:|
+| Clean finishes | 598 (99.7%) | 584 (97.3%) |
+| Recorded contacts | 0 | 0 |
+| Straight finishes | 199/200 | 197/200 |
+| Bend finishes | 200/200 | 189/200 |
+| Obstacle bypass finishes | 199/200 | 198/200 |
+| Episodes ending after consecutive missing camera inputs | 0 | 13 |
+| Mean episode lateral tracking RMSE | 0.218 m | 0.174 m |
+
+Both finished 582 of the same routes. TD3 finished 16 routes the teacher missed, and the teacher finished two routes TD3 missed. The paired difference was +2.33 percentage points, with an adjusted interval from +0.83 to +4.00 points. On the jointly completed routes TD3 reached the finish 0.066 seconds later on average. This comparison supports an improvement in route completion in this simulator. [TD3 episode scores](../results/td3/committee/td3_median.csv) · [Teacher episode scores](../results/td3/committee/pursuit.csv) · [Paired statistics](../results/td3/committee/head-to-head.json)
+
+**What did reward-based learning add beyond imitation?** Combining three imitation-only networks in exactly the same way yielded 586/600 finishes. The TD3 ensemble gained 12 finishes, a paired difference of +2.00 percentage points with an adjusted interval of +0.50 to +3.83. Both recorded zero contacts. Used individually, the frozen TD3 actors for seeds 37, 83 and 109 completed 588, 593 and 592 routes respectively. This measures one ensemble on new routes within the same simulator. [Scores for all six controllers](../results/td3/committee/summary.json)
+
+## Reproduce the head-to-head
 
 The README compares the learned controller with the tuned controller that supplied its training demonstrations. The commands below require only these two arms. The report retains the interval adjustment from the original protocol, so its counts, timing and interval match the corresponding full-benchmark comparison.
 
