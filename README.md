@@ -1,12 +1,12 @@
-# Agentic-VLA-SAC-Driving
+# RL-SAC-Driving-Geometric-Vision
 
 **Can a stereo range estimate transfer into a learned driving controller, and does adaptive training improve that controller?** This project tests both questions with a Windows CARLA 1.0 stereo rig, a Gymnasium bicycle model, and Soft Actor-Critic (SAC). Three training seeds compare fixed and adaptive curricula. A separate experiment gives a local language model bounded authority over scenario sampling.
 
-[![CARLA stereo braking replay](results/media/carla-poster.jpg)](https://github.com/Nandhini1github/Agentic-VLA-SAC-Driving/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)
+[![CARLA stereo braking replay](results/media/carla-poster.jpg)](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)
 
-**[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/Agentic-VLA-SAC-Driving/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/Agentic-VLA-SAC-Driving/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
+**[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
 
-The CARLA film displays both 960 × 540 sensor panels at native resolution. Its half-speed playback shows the speed response and exact brake-override frames. The second film replays three controllers on the same held-out Gym route. OpenDriveVLA remains a researched extension. All reference trajectories in these experiments are deterministic.
+The CARLA film displays both 960 × 540 sensor panels at native resolution. Its half-speed playback shows the speed response and exact brake-override frames. The second film replays three controllers on the same held-out Gymnasium route. All reference trajectories in these experiments are deterministic.
 
 ## Geometric vision on a live CARLA approach
 
@@ -30,7 +30,7 @@ Two independent checks isolate calibration and matching. Fitting a nonparallel s
 
 Each controller receives the same reference path, including a predefined bypass on obstacle routes. Pure pursuit gives the experiment a baseline that needs no training. It steers toward a waypoint 6 m ahead, while a separate proportional controller adjusts speed toward 5 m/s. Comparing SAC with this baseline tests what learning adds to the task of following a known path. Choosing a path around an obstacle is a separate planning problem.
 
-Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gym obstacle observations use analytic scene geometry. No brake shield was applied during this comparison.
+Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gymnasium obstacle observations use analytic scene geometry. No brake shield was applied during this comparison.
 
 | Controller | Completed | Collision rate | Tracking RMSE | Mean return | Mean steering change |
 |---|---:|---:|---:|---:|---:|
@@ -54,27 +54,44 @@ The LLM correctly identified bends as the highest-error scenario after the commo
 
 ## System architecture
 
+### Where reinforcement learning happens
+
+**Training runs in Gymnasium.** At each step, the SAC actor chooses continuous steering and acceleration commands. The bicycle environment advances the vehicle, scores progress, tracking, smoothness and terminal outcomes, and returns the next observation. Stable-Baselines3 stores these transitions in a replay buffer and samples them to update the actor and twin critics. The fixed arm samples all three scenarios uniformly. In the adaptive arms, a rule or local LLM uses validation results to choose the next stage's scenario mix. [Environment](driving_environment/route.py) / [SAC training loop](sac_training/experiment.py)
+
 ```mermaid
-flowchart LR
-    RGB[CARLA stereo RGB] --> Rect[Rectification and SGBM]
-    Rect --> Point[3D corridor obstacle]
-    Point --> Obs[Control observation]
-    Ref[Deterministic waypoints and ego state] --> Obs
-    Obs --> SAC[SAC policy]
-    SAC --> Brake[Deterministic brake]
-    Point --> Brake
-    Brake --> Car[CARLA ego vehicle]
-    Car --> RGB
-    GT[Depth sensor and actor box] --> Eval[Geometry evaluation]
-    Point --> Eval
-    Gym[Gym scenario sampler] --> Train[SAC training]
-    Train --> Val[Validation routes]
-    Val --> Agent[Rule or local LLM supervisor]
-    Agent --> Gym
-    Train --> SAC
+flowchart TD
+    Actor[SAC actor] -->|Steering and acceleration| Env[Gymnasium bicycle environment]
+    Env -->|Next observation| Actor
+    Env -->|Transition including reward| Replay[Replay buffer]
+    Replay -->|Sampled batches| Learn[SAC actor and twin-critic updates]
+    Learn -->|Updated weights| Actor
+    Learn --> Save[Policy checkpoint]
+    Save --> Val[Evaluate on validation routes]
+    Val --> Sup[Adaptive arms only: rule or local LLM]
+    Sup -->|Scenario mix for next training stage| Env
 ```
 
-OpenDriveVLA-0.5B has a published, gated checkpoint and an official nuScenes evaluator. It consumes UniAD data and produces decoded answers from which the evaluator extracts six waypoints. The released Python 3.10 / PyTorch 2.1.2 custom-operator stack poses a compatibility risk on the RTX 5060 Laptop GPU. We did not run pretrained inference. The tested CARLA path uses map references and the Gym path uses analytic waypoints. [Upstream audit and exact dependencies](docs/opendrivevla.md)
+### How CARLA uses the trained policy
+
+**The live drive uses inference only.** CARLA loads the fixed-distribution checkpoint from training seed 37. At each tick the actor predicts steering and a signed longitudinal command. The brake supervisor can replace that longitudinal command with full braking while retaining the actor's steering. The vehicle's motion produces the next camera pair and ego state. [CARLA control loop](carla_integration/drive.py)
+
+```mermaid
+flowchart TD
+    RGB[Synchronized stereo RGB] --> Depth[Rectification and SGBM depth]
+    Depth --> Range[3D corridor obstacle estimate]
+    Range --> Obs[Control observation]
+    State[Ego state and map waypoints] --> Obs
+    Obs --> Actor[Trained SAC actor]
+    Actor -->|Requested controls| Brake[Deterministic brake supervisor]
+    Range -->|Obstacle range| Brake
+    Checks[Speed, stereo coverage and frame age] --> Brake
+    Brake -->|Applied steering, throttle and brake| Ego[CARLA ego vehicle]
+    Depth -.-> Eval[Geometry evaluation]
+    Range -.-> Eval
+    GT[Reference depth camera and actor box] -.-> Eval
+```
+
+The training environment generates analytic waypoints and obstacle features. The CARLA run uses map waypoints and stereo-derived obstacle features. The reference depth camera scores dense depth, and the actor box supplies the reference obstacle range.
 
 ## Reproduce on Windows
 
