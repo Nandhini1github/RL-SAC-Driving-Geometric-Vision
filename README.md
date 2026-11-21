@@ -80,7 +80,21 @@ Across the three seeds, SAC completed 21 more trials with fixed training than wi
 
 ![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
 
-[![Pure pursuit, fixed SAC and adaptive SAC tracking the same held-out route.](results/media/controllers.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#comparison)
+### How closely does each controller follow the lane?
+
+The replay shows **inference**. At each step, each saved SAC policy turns camera-derived lane, speed and obstacle measurements into steering and acceleration. The policy weights stay fixed. Pure pursuit uses the same measurements to steer toward a point on the lane. The overhead view and tracking error come from the evaluator after each action.
+
+[![Three controllers completing a painted obstacle bypass with their running lateral tracking errors.](results/media/controllers.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#comparison)
+
+On route **8002**, all three finished. Pure pursuit stayed closest to the painted centerline at **0.24 m** lateral tracking RMSE, followed by SAC with adaptive training at **0.25 m** and SAC with fixed training at **0.29 m**. We selected the first obstacle route by seed that all three completed so their errors could be compared over the full bypass. Only two of the 20 obstacle routes met that criterion for training seed 37. The teal trails extend beyond the 40 m marker because the camera-based distance estimate reached 40 m after the vehicles crossed the reference finish.
+
+Route **8000** illustrates a different outcome. Both SAC runs ended after three consecutive frames without a camera speed estimate, even though the lane was still visible. Pure pursuit finished. Both routes count in the results above. [All seed-37 test episodes](results/control/heldout.csv)
+
+### How long does SAC take to choose an action?
+
+On this Windows machine, both saved policies took **0.13 ms per action at the median**. The 95th percentile was **0.60 ms** for fixed training and **0.57 ms** for adaptive training. Each timing starts just before the call to predict and ends when the steering and acceleration commands return.
+
+We recorded 94 camera-derived observations from one pure-pursuit replay, warmed up both policies, then timed 1,880 predictions per policy on the same observations. Each call processed one observation on one PyTorch CPU thread. The live CARLA runs measured camera processing separately at 328 ms and 296 ms per frame at the median. Those timings come from different experiments. [Benchmark code](evaluation/inference_latency.py) · [Recorded timings](results/inference_latency.json)
 
 ## What the training agent learned from the logs
 
@@ -171,6 +185,7 @@ foreach ($trial in 37,83,109) { & $python -m sac_training.experiment --seed $tri
 & $python -m evaluation.figures
 & $python -m evaluation.across_seeds
 & $python -m evaluation.rl_video
+& $python -m evaluation.inference_latency
 ```
 
 Each training directory contains episode logs, validations, final tests, decisions and checkpoints. Training recreates the local common replay buffer. For the optional local LLM experiment, run a local Ollama server with `qwen2.5:7b` installed, then run `& $python -m agentic_supervisor.local_llm` after training seed 37. The decision log identifies the source if the model is unavailable and the deterministic selector takes over.
