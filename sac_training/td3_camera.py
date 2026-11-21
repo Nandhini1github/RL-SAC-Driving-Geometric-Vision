@@ -175,15 +175,20 @@ def assert_matches_saved(actor, path):
         torch.testing.assert_close(tensor, original[name], rtol=0, atol=0)
 
 
+def load_actor(arm, seed):
+    actor = CameraActor(torch.zeros(11), torch.ones(11))
+    actor.load_state_dict(torch.load(OUT/str(seed)/f"{arm}.pt", weights_only=True))
+    actor.eval()
+    return actor
+
+
 def test(arm, seed, confirm=False):
     actor = None
     if arm == "residual":
         from stable_baselines3 import SAC
         actor = SAC.load(Path("results/residual")/str(seed)/"selected", device="cpu")
     elif arm not in ("pursuit", "conservative"):
-        actor = CameraActor(torch.zeros(11), torch.ones(11))
-        actor.load_state_dict(torch.load(OUT/str(seed)/f"{arm}.pt", weights_only=True))
-        actor.eval()
+        actor = load_actor(arm, seed)
     settings = (4.5, 3.75, 0.0) if arm == "conservative" else SETTINGS
     rows = rollouts(settings, (31000,100) if confirm else TEST, actor, reference=True,
                     standalone=arm in ("td3", "clone", "final"))

@@ -1,5 +1,40 @@
 # Can a learned policy beat its geometric teacher?
 
+## What replicated on 300 fresh routes
+
+The final TD3 networks produced steering and acceleration directly from camera-derived features. Replaying the same three frozen networks produced **880 clean finishes in 900 trials (97.8%)**, with **zero recorded contacts**. Tuned pure pursuit finished **288/300 (96.0%)** and continued imitation finished **870/900 (96.7%)**. Each learned policy faced the same 300 routes for each of three training seeds.
+
+| Controller | Clean finishes | Recorded contacts | Mean episode lateral RMSE |
+|---|---:|---:|---:|
+| Tuned pure pursuit, 4 m/s target | 288/300 (96.0%) | 0 | 0.171 m |
+| Continued imitation only | 870/900 (96.7%) | 0 | 0.171 m |
+| Final TD3 after imitation | 880/900 (97.8%) | 0 | 0.214 m |
+| Slower pure pursuit, 3.75 m/s target | 294/300 (98.0%) | 0 | 0.167 m |
+
+**The advantage depended on the training seed.** The TD3 actors finished 286, 296 and 298 routes respectively. Against tuned pure pursuit the paired gain was +1.78 percentage points, with a 95% bootstrap interval of −1.33 to +4.67. Against imitation the gain was +1.11 points, with an interval of −2.11 to +3.78. Both comparisons missed the prespecified criterion for a consistent RL improvement.
+
+**Speed changes the ranking.** TD3 reached the finish 0.05 s later on average than tuned pure pursuit on their 849 paired finishes. Slowing pure pursuit raised its completion to 98.0%. TD3 finished **0.65 s sooner on average** on the 866 paired trials both it and that slower controller completed. Pure pursuit had lower lateral tracking error at both speeds. These results apply to this Gymnasium simulator. [Replication scores, intervals and timings](../results/td3/confirmation/summary.json)
+
+![Paired completion differences on 300 fresh routes](../results/td3/confirmation/paired.png)
+
+[![Tuned pure pursuit, imitation and TD3 on the first obstacle route of the replication](../results/td3/controllers.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)
+
+The replay uses route 31000 and training seed 37. The overhead path and running tracking error are drawn only for evaluation. [Watch the full-resolution replay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)
+
+## Initial study on 180 routes
+
+| Controller | Clean finishes | Recorded contacts | Mean episode lateral RMSE |
+|---|---:|---:|---:|
+| Tuned pure pursuit | 175/180 (97.2%) | 0 | 0.176 m |
+| Previously trained residual SAC | 512/540 (94.8%) | 0 | 0.220 m |
+| Continued imitation only | 524/540 (97.0%) | 0 | 0.178 m |
+| Validation-selected TD3 branch, all three selected the imitation warm start | 517/540 (95.7%) | 0 | 0.178 m |
+| Final TD3 actors after RL updates | 537/540 (99.4%) | 0 | 0.220 m |
+
+The **original primary criterion was unmet**. The checkpoint selector favored an actor with zero RL updates for all three training seeds. On the same routes the separately specified final actors completed 177, 180 and 180 routes. Their paired gain over pure pursuit was 2.22 percentage points, with a 95% bootstrap interval of −0.37 to +5.00. Against continued imitation the gain was 2.41 points, with an interval of −0.56 to +6.11. Those exploratory gains motivated the frozen-policy replication below. The 540 trials use the same 180 distinct routes for three trained actors. [Initial scores and uncertainty intervals](../results/td3/summary.json)
+
+![Controller comparison on the initial held-out routes](../results/td3/completion.png)
+
 ## Protocol fixed before final testing
 
 The task is the existing 40 m camera-based Gymnasium route. The primary outcome is completion without a reference contact or departure. Compare the published tuned pure-pursuit controller (4.5 m lookahead, 4 m/s target) with two standalone neural policies: imitation only and imitation followed by offline TD3 with a demonstration penalty. These three comparators receive the original 11 inputs, including camera-derived features and the previous commands. The networks output steering and acceleration directly at inference.
@@ -15,11 +50,11 @@ The task is the existing 40 m camera-based Gymnasium route. The primary outcome 
 
 Two secondary comparisons use the same routes: the previous study's frozen residual SAC and the final TD3 checkpoint after all 3,200 RL actor updates. The latter shows what a policy that definitely received RL updates did when validation favored a warm start. Residual SAC retains its two additional camera-validity flags. Both comparisons were specified before opening the held-out set. All arms use the same environment and final scoring criteria. The CARLA films illustrate the earlier SAC policies. [TD3 paper](https://proceedings.mlr.press/v80/fujimoto18a.html) · [TD3+BC paper](https://arxiv.org/abs/2106.06860)
 
-## What changes during the RL updates?
-
 ### Independent replication protocol
 
 The secondary final-TD3 comparison in the first 180 routes motivated one independent replication. Before testing, freeze the three final TD3 actors and the three selected continuing-imitation actors, without further updates or selection. Evaluate seeds 31000–31099 in all three scenes (300 distinct routes). The primary comparators are the published tuned teacher and continuing imitation. Use the same per-seed, contact and paired-interval criteria as before, now applied to the final RL actors. Report paired travel time and tracking error. Also score a conservative pure-pursuit reference with the same 4.5 m lookahead and a 3.75 m/s target to check whether a small speed reduction can achieve a similar completion rate. This additional reference is a sensitivity check. Publish this one replication irrespective of outcome.
+
+## What changes during the RL updates?
 
 The actor starts by minimizing squared error against the teacher's steering and acceleration. During the RL phase, two critics learn discounted future camera reward from the actions actually driven in the simulator. Their training target uses the smaller target-network value, target-action smoothing, a 0.99 discount and zero bootstrap after the end of an episode. Every second critic update, the actor balances imitation error against the first critic's estimate of its proposed action's value. The imitation-only control receives the same minibatch of observations and labels on each such step. The actor uses only its learned weights and training-set normalization at deployment.
 
@@ -36,4 +71,10 @@ foreach ($seed in 37,83,109) {
     foreach ($arm in 'td3','clone','residual','final') { & $py -m sac_training.td3_camera test --arm $arm --seed $seed }
 }
 & $py -m evaluation.td3_results
+foreach ($arm in 'pursuit','conservative') { & $py -m sac_training.td3_camera test --confirm --arm $arm }
+foreach ($seed in 37,83,109) {
+    foreach ($arm in 'final','clone') { & $py -m sac_training.td3_camera test --confirm --arm $arm --seed $seed }
+}
+& $py -m evaluation.td3_results --confirm
+& $py -m evaluation.rl_video --compare-td3
 ```

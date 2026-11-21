@@ -62,4 +62,6 @@ The left rectified image supplies the CARLA lane center through a calibrated gro
 
 The [residual SAC follow-up](residual-experiment.md) tests a different training approach on 90 fresh Gymnasium routes. It compares a trained correction against the same tuned controller with the correction disabled and against direct-action SAC. The CARLA results above belong to the original checkpoints.
 
+The [standalone TD3 study](td3-experiment.md) asks whether a network trained from demonstrations and camera rewards can outperform its geometric teacher. The deployed TD3 actor outputs both commands itself. The study includes an imitation-only control and a separate replication with frozen weights.
+
 The Gymnasium renderer paints a reference lane into each scene. Both the Gymnasium and CARLA policies track lane geometry fitted from visible markings. OpenDriveVLA's public release uses gated weights and a UniAD/nuScenes input contract. Official inference and peak GPU memory remain unverified here. The local Qwen model is a training analyst. [OpenDriveVLA dependency and interface audit](opendrivevla.md)

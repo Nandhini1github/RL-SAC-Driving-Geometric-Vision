@@ -1,4 +1,5 @@
 """Paired route comparisons for the camera-only TD3 experiment."""
+import argparse
 import json
 
 import matplotlib
@@ -10,10 +11,10 @@ import pandas as pd
 from sac_training.td3_camera import OUT, SCENES, SEEDS, STAGES
 
 
-def read_scores(path):
+def read_scores(path, count=180):
     scores = pd.read_csv(path).set_index(["seed", "scene"]).sort_index()
-    if len(scores) != 180 or scores.index.has_duplicates:
-        raise ValueError(f"Expected 180 unique held-out routes in {path}")
+    if len(scores) != count or scores.index.has_duplicates:
+        raise ValueError(f"Expected {count} unique held-out routes in {path}")
     return scores
 
 
@@ -33,11 +34,7 @@ def paired(rl, other, rng):
                 jointly_finished=len(time_changes), paired_arrival_difference_s=float(np.mean(time_changes)))
 
 
-def main():
-    teacher = read_scores(OUT/"pursuit.csv")
-    scores = {arm:[read_scores(OUT/str(seed)/f"{arm}.csv") for seed in SEEDS]
-              for arm in ("td3","clone","residual","final")}
-    scores["pursuit"] = [teacher]
+def describe(scores):
     summary = {}
     for arm, tables in scores.items():
         data = pd.concat(tables)
@@ -45,6 +42,51 @@ def main():
                             contacts=int(data.collision.sum()), mean_episode_rmse_m=float(data.rmse_m.mean()),
                             completions_per_run=[int(table.success.sum()) for table in tables],
                             scene_successes={scene:int(data.xs(scene,level="scene").success.sum()) for scene in SCENES})
+    return summary
+
+
+def meets(comparisons, summary, arm):
+    return all(min(c["per_seed_net_routes"]) > 0 and c["ci95_pp"][0] > 0 and
+               summary[arm]["contacts"]/summary[arm]["episodes"] <= summary[name]["contacts"]/summary[name]["episodes"]
+               for name,c in comparisons.items())
+
+
+def confirmation():
+    directory = OUT/"confirmation"
+    scores = {arm:[read_scores(directory/f"{arm}.csv",300)] for arm in ("pursuit","conservative")}
+    for arm in ("final","clone"):
+        scores[arm] = [read_scores(directory/str(seed)/f"{arm}.csv",300) for seed in SEEDS]
+    rng = np.random.default_rng(804)
+    summary = describe(scores)
+    comparisons = {name:paired(scores["final"], scores[name] if name == "clone" else scores[name]*len(SEEDS), rng)
+                   for name in ("pursuit", "clone", "conservative")}
+    primary = {name:comparisons[name] for name in ("pursuit", "clone")}
+    report = dict(arms=summary, paired_final_minus_comparator=comparisons,
+                  meets_criterion=bool(meets(primary,summary,"final")))
+    output = json.dumps(report, indent=2)
+    (directory/"summary.json").write_text(output+"\n")
+    print(output)
+    fig,ax = plt.subplots(figsize=(8.4,3.7), layout="constrained")
+    for i,(arm,title) in enumerate((("pursuit","Tuned pure pursuit"),("clone","Imitation only"),
+                                   ("conservative","Slower pure pursuit"))):
+        c = comparisons[arm]
+        lo, hi = c["ci95_pp"]
+        ax.hlines(i,lo,hi,color="#2d7184",linewidth=3)
+        ax.plot(c["gain_pp"],i,"o",color="#193d48")
+    ax.axvline(0,color="#858585",ls="--")
+    ax.set(yticks=[0,1,2], yticklabels=["Tuned pure pursuit","Imitation only","Slower pure pursuit"],
+           xlabel="TD3 minus comparator completion (percentage points)",ylim=(2.6,-.6),
+           title="Frozen policies on 300 fresh routes • paired 95% intervals")
+    fig.savefig(directory/"paired.png",dpi=160)
+    plt.close(fig)
+
+
+def main():
+    teacher = read_scores(OUT/"pursuit.csv")
+    scores = {arm:[read_scores(OUT/str(seed)/f"{arm}.csv") for seed in SEEDS]
+              for arm in ("td3","clone","residual","final")}
+    scores["pursuit"] = [teacher]
+    summary = describe(scores)
     rng = np.random.default_rng(804)
     comparisons = {"pursuit":paired(scores["td3"], [teacher]*len(SEEDS), rng),
                    "clone":paired(scores["td3"], scores["clone"], rng)}
@@ -57,9 +99,7 @@ def main():
         selected[seed] = {arm:max((s for s in history if s["arm"] == arm),
                                   key=lambda s:s["validation_rank"])["post_warmup_actor_updates"]
                           for arm in ("td3","clone")}
-    passed = all(min(c["per_seed_net_routes"]) > 0 and c["ci95_pp"][0] > 0 for c in comparisons.values())
-    passed &= all(summary["td3"]["contacts"]/summary["td3"]["episodes"] <= summary[arm]["contacts"]/summary[arm]["episodes"]
-                  for arm in comparisons)
+    passed = meets(comparisons, summary, "td3")
     report = dict(arms=summary, paired_td3_minus_comparator=comparisons,
                   paired_final_minus_comparator=final_comparisons,
                   selected_actor_updates_after_warmup=selected, meets_criterion=bool(passed))
@@ -84,4 +124,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--confirm",action="store_true")
+    if parser.parse_args().confirm:
+        confirmation()
+    else:
+        main()

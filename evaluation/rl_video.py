@@ -12,9 +12,20 @@ from evaluation.figures import MEDIA, OUT
 from evaluation.carla_media import label, INK, MUTED, TEAL, AMBER
 
 
-def main(seed):
+def main(seed, compare_td3=False):
     torch.set_num_threads(1)
-    models=[None]+[SAC.load(OUT/name,device="cpu") for name in ("fixed","adaptive")]
+    if compare_td3:
+        from sac_training.td3_camera import OUT as output, SETTINGS, base_command, load_actor
+        models = [None, load_actor("clone",37), load_actor("final",37)]
+        names = ("Tuned pure pursuit", "Imitation only", "TD3 after imitation")
+        baseline = lambda obs: base_command(obs, SETTINGS)
+        title = "From driving demonstrations to TD3"
+    else:
+        output = MEDIA
+        models=[None]+[SAC.load(OUT/name,device="cpu") for name in ("fixed","adaptive")]
+        names = ("Pure pursuit","SAC with fixed training","SAC with adaptive training")
+        baseline = pursuit
+        title = "How closely does each car follow the lane?"
     envs=[RouteEnv() for _ in models]
     obs=[env.reset(seed=seed,options={"scene":"obstacle"})[0] for env in envs]
     tracks=[[] for _ in models]
@@ -24,15 +35,15 @@ def main(seed):
     failed_reference = [False] * 3
     ff=imageio_ffmpeg.get_ffmpeg_exe()
     cmd=[ff,"-y","-loglevel","error","-f","rawvideo","-pix_fmt","bgr24","-s","1600x900","-r","10","-i","-",
-         "-an","-c:v","libx264","-crf","17","-pix_fmt","yuv420p","-movflags","+faststart",str(MEDIA/"controllers.mp4")]
+         "-an","-c:v","libx264","-crf","17","-pix_fmt","yuv420p","-movflags","+faststart",str(output/"controllers.mp4")]
     previews=[]
     with subprocess.Popen(cmd,stdin=subprocess.PIPE) as encoder:
         for tick in range(162):
             img=np.full((900,1600,3),(33,28,22),np.uint8)
-            label(img,"How closely does each car follow the lane?",40,68,1.55)
+            label(img,title,40,68,1.55)
             label(img,f"Gymnasium obstacle bypass   |   Held-out route {seed}   |   Training seed 37",42,114,.88,MUTED)
             label(img,f"{tick/10:.1f} s",1390,80,1.5,TEAL)
-            for j,(model,env,name) in enumerate(zip(models,envs,("Pure pursuit","SAC with fixed training","SAC with adaptive training"))):
+            for j,(model,env,name) in enumerate(zip(models,envs,names)):
                 top=150+230*j
                 def point(x,y): return (round(420+23*x), round(top+120-23*y))
                 cv2.line(img,(40,top),(1560,top),(81,69,56),1)
@@ -58,7 +69,7 @@ def main(seed):
             if all(state!="tracking" for state in states): break
             for j,(model,env) in enumerate(zip(models,envs)):
                 if states[j]!="tracking": continue
-                a=pursuit(obs[j]) if model is None else model.predict(obs[j],deterministic=True)[0]
+                a=baseline(obs[j]) if model is None else model.predict(obs[j],deterministic=True)[0]
                 obs[j],_,term,trunc,info=env.step(a)
                 # These measurements score the replay after the actor has taken its step.
                 lateral_error, contact, reached = env.reference_metrics()
@@ -82,11 +93,14 @@ def main(seed):
         encoder.stdin.close()
         if encoder.wait(): raise RuntimeError("Video export failed")
     previews.append(Image.fromarray(cv2.cvtColor(cv2.resize(img,(768,432)),cv2.COLOR_BGR2RGB)))
-    previews[0].save(MEDIA/"controllers.gif",save_all=True,append_images=previews[1:],
+    previews[0].save(output/"controllers.gif",save_all=True,append_images=previews[1:],
                      duration=[300]*(len(previews)-1)+[2800],loop=0)
 
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument("--seed",type=int,default=8002,help="Held-out obstacle route to replay")
-    main(parser.parse_args().seed)
+    parser.add_argument("--seed",type=int,help="Held-out obstacle route to replay")
+    parser.add_argument("--compare-td3",action="store_true")
+    args=parser.parse_args()
+    seed=args.seed if args.seed is not None else (31000 if args.compare_td3 else 8002)
+    main(seed,args.compare_td3)

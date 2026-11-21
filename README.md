@@ -4,7 +4,9 @@
 
 **What improved the learned controller?** On 90 new Gymnasium routes repeated over three training seeds, SAC trained to correct a geometric controller completed **94.8%** of trials, compared with **67.4%** for direct-action SAC at the same training budget. Recorded contacts were **0 versus 16**. Tuned pure pursuit alone reached **95.6%** completion. On trials both it and residual SAC finished, the learned corrections reached the finish **0.38 s sooner on average**. The CARLA videos below show the original standalone policies. [Residual SAC experiment, plots and matched comparisons](docs/residual-experiment.md)
 
-**[Watch all three videos in full resolution with autoplay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/)** · [Technical report](docs/technical-report.md)
+**[Watch the driving videos in full resolution with autoplay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/)** · [Technical report](docs/technical-report.md)
+
+**Can a standalone RL policy drive without pure pursuit at inference?** After learning from geometric demonstrations and then training with TD3 on camera rewards, the frozen networks finished **97.8%** of trials on a separate 300-route Gymnasium test, with zero recorded contacts across three training seeds. Tuned pure pursuit finished **96.0%**, imitation alone **96.7%**, and slower pure pursuit **98.0%**. Two of three TD3 seeds beat the tuned controller. The uncertainty interval includes zero. [Independent replication and limitations](docs/td3-experiment.md) · [Watch TD3 drive](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)
 
 ### Fixed SAC in CARLA
 
