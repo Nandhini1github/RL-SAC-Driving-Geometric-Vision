@@ -10,9 +10,10 @@ class Lane:
     right_at_origin: float
     slope: float
     markings: int
+    curvature: float = 0.0
 
     def right(self, forward):
-        return self.right_at_origin + self.slope * forward
+        return self.right_at_origin + self.slope * forward + .5*self.curvature*forward**2
 
     def tracking_features(self):
         # Gym uses positive-left coordinates; heading error is ego minus path yaw.
@@ -58,4 +59,35 @@ class LaneCamera:
         if fits:
             _,side,offset,slope = max(fits)
             return Lane(offset-side*self.width_m/2,slope,1)
+        return None
+
+
+class CurvedLaneCamera(LaneCamera):
+    """Fit parallel lane-paint candidates on a flat road with a quadratic centerline."""
+    def __init__(self, k, baseline):
+        super().__init__(k, baseline)
+        forward = self.forward[::3]
+        offsets, slopes, curves = np.meshgrid(np.arange(-1.35, 1.36, .15),
+                                               np.arange(-.24, .241, .03),
+                                               np.arange(-.045, .046, .005))
+        self.coefficients = np.column_stack((offsets.ravel(), slopes.ravel(), curves.ravel()))
+        center = (self.coefficients[:, :1] + self.coefficients[:, 1:2]*forward
+                  + .5*self.coefficients[:, 2:3]*forward**2)
+        self.stripe_indices = []
+        for side in (-1, 1):
+            columns = np.rint((center + side*self.width_m/2 + 5)/.04).astype(int)
+            # Use a zero border for candidates that leave the camera's projected grid.
+            columns = np.where((columns >= 0) & (columns < self.u.shape[1]), columns, self.u.shape[1])
+            self.stripe_indices.append(columns + np.arange(len(forward))*(self.u.shape[1]+1))
+
+    def estimate(self, gray):
+        view = cv2.remap(gray, self.u[::3], self.v[::3], cv2.INTER_LINEAR).astype(np.float32)
+        ridge = np.zeros((len(view), view.shape[1]+1), np.float32)
+        ridge[:, 5:view.shape[1]-5] = np.clip(view[:, 5:-5] - np.maximum(view[:, :-10], view[:, 10:]), 0, 60)
+        left, right = [ridge.ravel()[indices].mean(axis=1) for indices in self.stripe_indices]
+        best = (np.maximum(left, right) + .65*np.minimum(left, right)).argmax()
+        visible = int(left[best] >= 8) + int(right[best] >= 8)
+        if visible:
+            offset, slope, curve = self.coefficients[best]
+            return Lane(offset, slope, visible, curve)
         return None

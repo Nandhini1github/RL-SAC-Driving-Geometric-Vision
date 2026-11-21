@@ -1,6 +1,6 @@
 # TD3 Reinforcement Learning based Driving Controller using Geometric Vision
 
-Can a car learn steering and acceleration from camera measurements, then use the same policy in a different simulator? A frozen TD3 ensemble completed **598 of 600 held-out Gymnasium routes** and drove a straight approach to a parked car in **CARLA 1.0**. In CARLA, stereo vision measured the obstacle ahead, TD3 drove the approach, and a deterministic brake brought the vehicle to rest with **3.45 m of camera-to-box clearance**.
+Can a car learn steering and acceleration from camera measurements, then use the same policy in a different simulator? A frozen TD3 ensemble completed **598 of 600 held-out Gymnasium routes** and drove a parked-car approach and two marked bends in **CARLA 1.0**. In CARLA, stereo vision measured the obstacle ahead, TD3 drove the approach, and a deterministic brake brought the vehicle to rest with **3.45 m of camera-to-box clearance**.
 
 ## Watch TD3 drive in CARLA
 
@@ -9,6 +9,21 @@ Can a car learn steering and acceleration from camera measurements, then use the
 [▶ Play the full 1080p CARLA video](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
 
 The cyan line follows the center of the lane fitted from visible paint in the left image. On the right, warm colors indicate nearby surfaces, cool colors indicate greater depth, and black pixels have no valid stereo match. The orange range trace uses the parked car’s bounding box for evaluation. The control indicator shows when the brake supervisor overrides TD3. Playback is half speed. The clock shows simulation time.
+
+### TD3 on left and right bends
+
+[![TD3 on a left bend and a right bend in CARLA, with chase and front-camera views](results/carla_bends/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#bends)
+
+[▶ Play the 40-second bend video in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#bends) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_bends/media/td3-bends.mp4)
+
+The same frozen TD3 weights drove in opposite directions on a curved section of Town10HD_Opt. Each pass starts from rest and runs for 20 simulated seconds. The cyan line on the front camera is a curved fit to visible lane paint. The chase camera shows the car’s position on the road. TD3 receives the fitted lane, visual speed, stereo obstacle measurements and previously applied commands. The map supplies the initial spawn and independent tracking reference.
+
+| Pass | Distance driven | Vehicle heading change | Lateral tracking RMSE | Brake override frames | Recorded collisions |
+|---|---:|---:|---:|---:|---:|
+| Left | 60.7 m | 67.1° left | 9.3 cm | 23/200 | 0 |
+| Right | 71.5 m | 90.0° right | 17.6 cm | 1/200 | 0 |
+
+The map trace and tracking RMSE compare the vehicle’s center with the **assigned lane** throughout each pass. The steering graph shows the commands applied to the car. The indicator identifies frames where the safety supervisor took over braking. [Bend metrics](results/carla_bends/metrics.json) · [Left pass telemetry](results/carla_bends/left/frames.csv) · [Right pass telemetry](results/carla_bends/right/frames.csv)
 
 ## Why TD3?
 
@@ -46,7 +61,7 @@ The same frozen steering and longitudinal weights used in Gymnasium ran unchange
 
 ![TD3 approach with measured stereo range versus box range, visual speed during brake override, and depth error by distance](results/carla_td3/media/carla.png)
 
-The 0.43 m range error describes one obstacle surface. Dense depth was less accurate at longer range. At 3–8 m, 36.1% of reference pixels had valid predictions, with 0.52 m mean absolute error. At 16–30 m, coverage was 64.8% and mean absolute error was 5.99 m. This single drive demonstrates closed-loop transfer on a straight road. Generalization to traffic, curved roads and weather requires additional CARLA trials. [Depth results by range](results/carla_td3/metrics.json) · [Replayable stereo examples](results/carla_td3/sample_points.json)
+The 0.43 m range error describes one obstacle surface. Dense depth was less accurate at longer range. At 3–8 m, 36.1% of reference pixels had valid predictions, with 0.52 m mean absolute error. At 16–30 m, coverage was 64.8% and mean absolute error was 5.99 m. This single drive demonstrates closed-loop transfer on a straight road. The bend video tests curved-road tracking separately. Traffic and varied weather require further trials. [Depth results by range](results/carla_td3/metrics.json) · [Replayable stereo examples](results/carla_td3/sample_points.json)
 
 ## Gymnasium route completion
 
@@ -88,6 +103,15 @@ Once the server is ready, run the capture and render the video. The capture rest
 ```powershell
 & $py -m carla_integration.drive --port 2540 --output .runtime/repeat --capture .runtime/repeat-frames
 & $py -m evaluation.carla_media --run-dir .runtime/repeat --capture-dir .runtime/repeat-frames
+```
+
+To reproduce the two bend recordings on the same dedicated server, run the passes sequentially and render them together.
+
+```powershell
+foreach ($turn in 'left','right') {
+    & $py -m carla_integration.drive --port 2540 --scene $turn --output ".runtime/bend-repeat/$turn" --capture ".runtime/bend-images/$turn"
+}
+& $py -m evaluation.bend_video --run-dir .runtime/bend-repeat --capture-dir .runtime/bend-images
 ```
 
 [Train TD3 from the demonstration dataset](docs/td3-experiment.md) · [Reproduce the paired evaluation](docs/td3-committee.md) · [Technical report](docs/technical-report.md)

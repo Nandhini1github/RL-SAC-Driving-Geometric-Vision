@@ -1,0 +1,24 @@
+{
+  "left": {
+    "frames": 200,
+    "distance_m": 60.69222800450279,
+    "heading_change_deg": -67.11351582407951,
+    "collisions": 0,
+    "lateral_rmse_m": 0.09282234886506635,
+    "peak_lateral_error_m": 0.15323627979404872,
+    "overrides": 23,
+    "missing_input_frames": 1,
+    "outside_reference_frames": 0
+  },
+  "right": {
+    "frames": 200,
+    "distance_m": 71.5149275186269,
+    "heading_change_deg": 90.03768920898438,
+    "collisions": 0,
+    "lateral_rmse_m": 0.17599586812406023,
+    "peak_lateral_error_m": 0.2624274781737332,
+    "overrides": 1,
+    "missing_input_frames": 1,
+    "outside_reference_frames": 0
+  }
+}

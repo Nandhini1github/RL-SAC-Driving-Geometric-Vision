@@ -23,6 +23,7 @@
     <h1>Camera-only driving demos</h1>
     <nav aria-label="Recordings and project">
       <a href="#carla">TD3 stereo drive in CARLA</a>
+      <a href="#bends">TD3 on CARLA bends</a>
       <a href="#td3">TD3 and Pure pursuit in Gymnasium</a>
       <a href="https://github.com/Nandhini1github/RL-TD3-Driving-Geometric-Vision#readme">Results and methods ↗</a>
     </nav>
@@ -30,6 +31,11 @@
       <h2>TD3 stereo guided braking in CARLA</h2>
       <video aria-label="Live stereo depth, fitted lane and TD3 braking telemetry" src="results/carla_td3/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
       <p>The cyan centerline comes from camera-detected lane markings. Stereo estimates the range to the parked vehicle. Watch the control indicator switch from TD3 to the deterministic brake override as the car approaches. The orange range trace is the independent reference used for evaluation.</p>
+    </section>
+    <section id="bends">
+      <h2>TD3 on left and right bends in CARLA</h2>
+      <video aria-label="TD3 driving left and right bends with chase camera, front-camera lane fit and applied steering" src="results/carla_bends/media/td3-bends.mp4" autoplay muted playsinline loop controls></video>
+      <p>Two 20-second passes on Town10HD_Opt. The car turned 67° to the left and 90° to the right, with zero recorded collisions. The camera-derived lane supplies steering features. The map trace and tracking error are evaluation overlays.</p>
     </section>
     <section id="td3">
       <h2>TD3 and Pure pursuit on the same obstacle bypass</h2>

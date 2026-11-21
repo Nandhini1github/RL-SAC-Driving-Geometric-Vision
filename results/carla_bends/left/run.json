@@ -1,0 +1,31 @@
+{
+  "server": "1.0",
+  "map": "Carla/Maps/Town10HD_Opt",
+  "controller": "TD3",
+  "lane_history_lookahead_m": 3.5,
+  "checkpoint_sha256": {
+    "results/td3/37/final.pt": "9096fe5717a210413dfea5d86c7e0825e969e2c416e89c004c1897967742a670",
+    "results/tracking/steering-37.pt": "98d4b54caf675df39def71a5d6553307f9ea452c42545930bcc5e354619234d2",
+    "results/td3/83/final.pt": "32d9ef26144311fd94dd33b554d51457a60e4c92ecc68f4284ed5444e5dc48c5",
+    "results/tracking/steering-83.pt": "2a531deb0f1cb6e4d4627dcb77b7d63938c27c6f44ed296b800173fe61d193c5",
+    "results/td3/109/final.pt": "169bd29884fbca16c8c3226f86bc93ff440e863663c1a3688586923fc48861ee",
+    "results/tracking/steering-109.pt": "f35f615aabe3f0807fd50eba8954176130a9a692403d1b747361251106e3a6c0"
+  },
+  "observation_source": "stereo RGB and ground-plane visual odometry",
+  "width": 960,
+  "height": 540,
+  "baseline_m": 0.32,
+  "hfov_deg": 80,
+  "dt_s": 0.1,
+  "frames": 200,
+  "collisions": 0,
+  "scene": "left",
+  "ego_spawn_xy_yaw": [
+    57.33004379272461,
+    141.1724395751953,
+    0.32044845819473267
+  ],
+  "reference_road": 1,
+  "reference_lane": -2,
+  "end_reason": "frame budget"
+}
