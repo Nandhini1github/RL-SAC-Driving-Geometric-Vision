@@ -1,4 +1,4 @@
-# RL-TD3-Driving-Geometric-Vision
+# TD3 Reinforcement Learning based Driving Controller using Geometric Vision
 
 Can a car learn steering and acceleration from camera measurements, then use the same policy in a different simulator? A frozen TD3 ensemble completed **598 of 600 held-out Gymnasium routes** and drove a straight approach to a parked car in **CARLA 1.0**. In CARLA, stereo vision measured the obstacle ahead, TD3 drove the approach, and a deterministic brake brought the vehicle to rest with **3.45 m of camera-to-box clearance**.
 
