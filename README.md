@@ -63,6 +63,16 @@ The rule-guided supervisor audits validation failures after each stage. Its only
 
 The LLM correctly identified bends as the highest-error scenario after the common checkpoint. At the second decision it again called bends the highest-error case (0.246 m), although obstacles had reached 0.324 m. The saved decision record exposes the error and the exact training change it caused. This pilot provides no performance advantage for the language-model selector. [LLM decisions and inputs](results/control/llm_decisions.json) · [LLM held-out episodes](results/control/llm_heldout.csv)
 
+## STAR interview summary
+
+**Situation.** A controller can track a simulated route when it knows the lane and obstacle positions exactly. In a camera-driven vehicle, those quantities have to be estimated. I wanted to understand how well a learned controller handled that transition.
+
+**Task.** I set out to answer two questions. Would practicing difficult routes improve a Soft Actor-Critic (SAC) policy under a fixed training budget? Could a frozen policy use sensor measurements to approach a parked car in CARLA?
+
+**Action.** I trained fixed and adaptive versions of SAC from identical checkpoints across three seeds and evaluated them on the same routes alongside pure pursuit. For the CARLA test, I estimated obstacle distance from stereo disparity, fitted the lane center from camera images, and estimated speed from GNSS. I logged both the policy's requested commands and the commands applied by the brake supervisor so I could tell what actually stopped the vehicle.
+
+**Result.** Adaptive SAC completed 180 of 180 held-out Gymnasium episodes. Fixed SAC completed 170, with all ten collisions concentrated in one training seed. Pure pursuit still had the lowest average tracking error. In the separate CARLA test, the fixed SAC policy drove one straight approach using sensor inputs. Stereo range error averaged 0.56 m in absolute terms, and the deterministic brake brought the car to a stop with 3.06 m of camera-to-obstacle clearance.
+
 ## System architecture
 
 ### Where reinforcement learning happens
