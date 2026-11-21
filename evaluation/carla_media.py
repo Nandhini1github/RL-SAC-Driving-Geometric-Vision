@@ -78,9 +78,8 @@ def main():
     with subprocess.Popen(cmd,stdin=subprocess.PIPE) as process:
         for i,row in df.iterrows():
             img=np.full((1080,1920,3),(33,28,22),np.uint8)
-            label(img,"Stereo-guided braking in CARLA",32,60,1.65)
-            label(img,"Town10HD   /   SAC + deterministic brake   /   half-speed replay",34,105,.84,MUTED)
-            label(img,f"{t[i]:.1f} s",1680,77,1.65,TEAL)
+            label(img,"Stereo guided braking in CARLA",32,87,1.65)
+            label(img,f"{t[i]:.1f} s",1680,87,1.65,TEAL)
             img[139:679,:960]=cv2.imread(str(CAPTURE/f"rgb_{i:03}.jpg"))
             img[139:679,960:]=cv2.imread(str(CAPTURE/f"depth_{i:03}.jpg"))
             label(img,"Left RGB camera",32,721,1.0)
