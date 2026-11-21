@@ -12,21 +12,17 @@ The cyan line follows the center of the lane fitted from visible paint in the le
 
 ### TD3 on left and right bends
 
-#### Geometric vision on the bends
+[![TD3 on both CARLA bends with the front RGB camera, fitted lane, stereo depth, speed and applied steering](results/bend_stereo/media/dashboard-preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends)
 
-[![Geometric vision video showing both rectified camera images, SGBM disparity and stereo depth during left and right bends](results/bend_stereo/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bend-stereo)
+[▶ Play the 40-second bend demo in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/bend_stereo/media/td3-bend-dashboard.mp4)
 
-[▶ Watch geometric vision on both bends in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bend-stereo) · [Open the stereo MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/bend_stereo/media/stereo-geometry.mp4)
+The first 20 seconds show the left bend, and the next 20 show the right. The cyan line follows the lane fitted from visible paint. The depth colors use the same scale as the braking demo. Below the cameras, the plots show camera-estimated speed and the steering command applied to the car. Negative steering turns left and positive steering turns right. The control indicator marks any brake override. Gaps in the speed trace mark missing visual estimates.
 
-The top panels are the exact grayscale images used for stereo matching. The cyan curve follows the lane estimated from the left camera. Yellow crosses mark a sample correspondence on the same row of both images. Their horizontal separation is disparity in source pixels. Below, brighter disparity indicates a larger shift. The depth panel shows nearby surfaces in warm colors and distant surfaces in cool colors, with black where matching failed. The readout converts the highlighted disparity to metres using `Z = fB/d`.
+**See how the stereo depth was calculated.** The four-panel replay shows the rectified left and right images, the disparity from OpenCV StereoSGBM, and depth in metres. Yellow crosses identify a sample match. Its horizontal shift in pixels gives depth through `Z = fB/d`. Both videos use the same 400 synchronized frames, checked against the valid-depth fraction and obstacle range recorded during control. [Watch the stereo breakdown](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bend-stereo) · [Left-pass telemetry](results/bend_stereo/left/frames.csv) · [Right-pass telemetry](results/bend_stereo/right/frames.csv)
 
-These are two fresh TD3 passes with lossless stereo recording enabled. Each replayed frame is checked against the valid-depth fraction and obstacle range logged during that pass. [Left-pass telemetry](results/bend_stereo/left/frames.csv) · [Right-pass telemetry](results/bend_stereo/right/frames.csv)
+#### Chase-camera runs and tracking results
 
-#### Driving replay
-
-[![TD3 on a left bend and a right bend in CARLA, with chase and front-camera views](results/carla_bends/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends)
-
-[▶ Play the 40-second bend video in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/carla_bends/media/td3-bends.mp4)
+[Watch the chase-camera runs used for the table below](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bend-chase)
 
 The same frozen TD3 weights drove in opposite directions on a curved section of Town10HD_Opt. Each pass starts from rest and runs for 20 simulated seconds. The cyan line on the front camera is a curved fit to visible lane paint. The chase camera shows the car’s position on the road. TD3 receives the fitted lane, visual speed, stereo obstacle measurements and previously applied commands. The map supplies the initial spawn and independent tracking reference.
 
@@ -125,6 +121,7 @@ foreach ($turn in 'left','right') {
 }
 & $py -m evaluation.bend_video --run-dir .runtime/bend-repeat --capture-dir .runtime/bend-images
 & $py -m evaluation.bend_stereo_video --run-dir .runtime/bend-repeat --capture-dir .runtime/bend-images
+& $py -m evaluation.bend_stereo_video --run-dir .runtime/bend-repeat --capture-dir .runtime/bend-images --dashboard
 ```
 
 [Train TD3 from the demonstration dataset](docs/td3-experiment.md) · [Reproduce the paired evaluation](docs/td3-committee.md) · [Technical report](docs/technical-report.md)

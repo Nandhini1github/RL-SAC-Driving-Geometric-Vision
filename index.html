@@ -23,8 +23,9 @@
     <h1>Camera-only driving demos</h1>
     <nav aria-label="Recordings and project">
       <a href="#carla">TD3 stereo drive in CARLA</a>
-      <a href="#bend-stereo">Geometric vision on bends</a>
       <a href="#bends">TD3 on CARLA bends</a>
+      <a href="#bend-stereo">Stereo breakdown</a>
+      <a href="#bend-chase">Chase-camera view</a>
       <a href="#td3">TD3 and Pure pursuit in Gymnasium</a>
       <a href="https://github.com/Nandhini1github/RL-TD3-Driving-Using-Geometric-Vision#readme">Results and methods ↗</a>
     </nav>
@@ -33,13 +34,18 @@
       <video aria-label="Live stereo depth, fitted lane and TD3 braking telemetry" src="results/carla_td3/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
       <p>The cyan centerline comes from camera-detected lane markings. Stereo estimates the range to the parked vehicle. Watch the control indicator switch from TD3 to the deterministic brake override as the car approaches. The orange range trace is the independent reference used for evaluation.</p>
     </section>
+    <section id="bends">
+      <h2>TD3 on left and right bends in CARLA</h2>
+      <video aria-label="Front camera with fitted lane, stereo depth, visual speed and applied steering on two CARLA bends" src="results/bend_stereo/media/td3-bend-dashboard.mp4" autoplay muted playsinline loop controls></video>
+      <p>The first 20 seconds show the left bend. At 20 seconds the right bend begins and the simulation clock restarts. The speed trace comes from the camera, and the signed steering trace shows the command applied at each frame.</p>
+    </section>
     <section id="bend-stereo">
       <h2>Geometric vision on left and right bends</h2>
       <video aria-label="Matched stereo camera views, SGBM disparity and calculated depth on both TD3 bends" src="results/bend_stereo/media/stereo-geometry.mp4" autoplay muted playsinline loop controls></video>
       <p>Follow the yellow crosses across the rectified camera views. Their horizontal separation in pixels determines the displayed depth in metres. Black in the depth panel means the matcher found no valid correspondence.</p>
     </section>
-    <section id="bends">
-      <h2>TD3 on left and right bends in CARLA</h2>
+    <section id="bend-chase">
+      <h2>Chase-camera view of the bends</h2>
       <video aria-label="TD3 driving left and right bends with chase camera, front-camera lane fit and applied steering" src="results/carla_bends/media/td3-bends.mp4" autoplay muted playsinline loop controls></video>
       <p>Two 20-second passes on Town10HD_Opt. The car turned 67° to the left and 90° to the right, with zero recorded collisions. The camera-derived lane supplies steering features. The map trace and tracking error are evaluation overlays.</p>
     </section>
