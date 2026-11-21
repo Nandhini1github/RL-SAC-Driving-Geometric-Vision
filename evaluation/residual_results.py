@@ -12,6 +12,9 @@ from sac_training.residual import OUT, SCENES, SEEDS
 
 def main():
     data = pd.read_csv(OUT/"heldout.csv")
+    direct = OUT/"heldout_direct.csv"
+    if direct.exists():
+        data = pd.concat([data, pd.read_csv(direct)], ignore_index=True)
     baseline = data[data.controller == "tuned_pursuit"].set_index(["scene", "seed"]).sort_index()
     per_seed = []
     differences = []
@@ -34,12 +37,17 @@ def main():
     policy_ids = rng.integers(0, len(SEEDS), size=(trials, len(SEEDS), 1))
     route_ids = rng.integers(0, diff.shape[1], size=(trials, 1, diff.shape[1]))
     bootstrap = diff[policy_ids, route_ids, :].mean(axis=(1, 2, 3))
-    arms = ["original_pursuit", "tuned_pursuit", "standalone_sac", "residual_sac"]
+    names = {"original_pursuit": ("Original pursuit", "#a5afb6"), "tuned_pursuit": ("Tuned pursuit", "#51646c"),
+             "standalone_sac": ("Direct SAC (12k)", "#dfaa7a"), "matched_direct_sac": ("Direct SAC (33k)", "#a46330"),
+             "residual_sac": ("Residual SAC (33k)", "#197a73")}
+    arms = [arm for arm in names if arm in set(data.controller)]
     totals = {}
     for arm in arms:
         d = data[data.controller == arm]
         totals[arm] = dict(completions=int(d.success.sum()), episodes=len(d),
                            contacts=int(d.collision.sum()), mean_episode_rmse_m=float(d.rmse_m.mean()),
+                           camera_loss_endings=int(d.ended_on_missing_input.sum()),
+                           missing_speed_frame_fraction=float(d.missing_speed_frames.sum()/d.steps.sum()),
                            by_scene={s:int(d.loc[d.scene == s, "success"].sum()) for s in SCENES})
     meets = (diff.mean() >= .05 and all(r["gained"] > r["lost"] for r in per_seed) and
              sum(r["contacts"] for r in per_seed) <= len(SEEDS) * baseline.collision.sum())
@@ -52,18 +60,18 @@ def main():
     print(output)
 
     fig, (left, right) = plt.subplots(1, 2, figsize=(11.8, 4.8), layout="constrained")
-    labels = ["Original pursuit", "Tuned pursuit", "Standalone SAC", "Residual SAC"]
-    colors = ["#a5afb6", "#51646c", "#c07243", "#197a73"]
     x = np.arange(len(SCENES))
-    for j, (arm, label, color) in enumerate(zip(arms, labels, colors)):
+    width = .84 / len(arms)
+    for j, arm in enumerate(arms):
+        label, color = names[arm]
         fraction = data[data.controller == arm].groupby("scene").success.mean().reindex(SCENES)
-        left.bar(x+(j-1.5)*.2, 100*fraction, .19, color=color, label=label)
+        left.bar(x+(j-(len(arms)-1)/2)*width, 100*fraction, width*.94, color=color, label=label)
     left.set(xticks=x, xticklabels=["Straight", "Bend", "Obstacle"], ylim=(0, 105),
              ylabel="Routes completed (%)", title="Fresh held-out routes")
     left.legend(loc="lower left", fontsize=8)
     y = np.arange(len(SEEDS))
-    right.barh(y+.16, [r["gained"] for r in per_seed], .3, color=colors[-1], label="Only residual SAC finished")
-    right.barh(y-.16, [r["lost"] for r in per_seed], .3, color=colors[1], label="Only tuned pursuit finished")
+    right.barh(y+.16, [r["gained"] for r in per_seed], .3, color=names["residual_sac"][1], label="Only residual SAC finished")
+    right.barh(y-.16, [r["lost"] for r in per_seed], .3, color=names["tuned_pursuit"][1], label="Only tuned pursuit finished")
     right.set(yticks=y, yticklabels=[str(s) for s in SEEDS], ylabel="SAC training seed",
               xlabel="Number of routes (out of 90)", title="What changed on matched routes?")
     right.legend(fontsize=8)

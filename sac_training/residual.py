@@ -76,6 +76,7 @@ def rollouts(settings, split, model=None, *, reference=False, standalone=False):
             arrived = contact = departure = False
             first_arrival = None
             errors = []
+            missing_speed_frames = 0
             while True:
                 if standalone:
                     action = model.predict(obs[:11], deterministic=True)[0]
@@ -84,6 +85,7 @@ def rollouts(settings, split, model=None, *, reference=False, standalone=False):
                 else:
                     correction = zero if model is None else model.predict(obs, deterministic=True)[0]
                     obs, _, done, timeout, info = env.step(correction)
+                missing_speed_frames += int(not env.unwrapped.speed_available)
                 if reference:
                     error, hit, reached = env.unwrapped.reference_metrics()
                     contact |= hit
@@ -100,7 +102,8 @@ def rollouts(settings, split, model=None, *, reference=False, standalone=False):
             collision = contact if reference else info["collision"]
             rows.append(dict(scene=scene, seed=seed, success=int(success), collision=int(collision),
                              rmse_m=float(np.sqrt(np.mean(np.square(errors)))), steps=len(errors),
-                             first_arrival_s=first_arrival))
+                             first_arrival_s=first_arrival, missing_speed_frames=missing_speed_frames,
+                             ended_on_missing_input=int(env.unwrapped.invalid >= 3)))
     env.close()
     return rows
 
@@ -122,10 +125,10 @@ def tune():
     (OUT/"baseline.json").write_text(json.dumps(dict(selected=winner["settings"], candidates=records), indent=2))
 
 
-def train(seed, settings):
-    folder = OUT/str(seed)
+def train(seed, settings, *, standalone=False):
+    folder = OUT/(f"direct-{seed}" if standalone else str(seed))
     folder.mkdir(exist_ok=True)
-    env = Monitor(ResidualEnv(settings), str(folder/"episodes"))
+    env = Monitor(RouteEnv() if standalone else ResidualEnv(settings), str(folder/"episodes"))
     model = SAC("MlpPolicy", env, seed=seed, device="cpu", policy_kwargs=dict(net_arch=[64, 64]),
                 buffer_size=65536, batch_size=128, learning_starts=512, train_freq=4,
                 gradient_steps=2, ent_coef="auto_0.05", verbose=0)
@@ -133,7 +136,7 @@ def train(seed, settings):
     checkpoints = []
     for stage in range(1, 5):
         model.learn(STAGE, reset_num_timesteps=False)
-        score = rank(rollouts(settings, VALIDATION, model))
+        score = rank(rollouts(settings, VALIDATION, model, standalone=standalone))
         checkpoints.append(dict(steps=stage * STAGE, validation_rank=score))
         if best is None or score > best:
             best = score
@@ -160,7 +163,7 @@ def test(settings):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("tune", "train", "test"))
+    parser.add_argument("mode", choices=("tune", "train", "train-direct", "test", "test-direct"))
     parser.add_argument("--seed", type=int, choices=SEEDS, default=SEEDS[0])
     args = parser.parse_args()
     torch.set_num_threads(1)
@@ -169,7 +172,14 @@ if __name__ == "__main__":
         tune()
     else:
         settings = json.loads((OUT/"baseline.json").read_text())["selected"]
-        if args.mode == "train":
-            train(args.seed, settings)
+        if args.mode in ("train", "train-direct"):
+            train(args.seed, settings, standalone=args.mode == "train-direct")
+        elif args.mode == "test-direct":
+            rows = []
+            for seed in SEEDS:
+                policy = SAC.load(OUT/f"direct-{seed}"/"selected", device="cpu")
+                rows.extend(dict(controller="matched_direct_sac", training_seed=seed, **r)
+                            for r in rollouts(settings, TEST, policy, reference=True, standalone=True))
+            save_csv(OUT/"heldout_direct.csv", rows)
         else:
             test(settings)
