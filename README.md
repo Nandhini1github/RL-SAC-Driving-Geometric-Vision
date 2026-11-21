@@ -26,6 +26,10 @@ Two independent checks isolate calibration and matching. Fitting a nonparallel s
 
 ## Reinforcement learning on held-out routes
 
+### Why pure pursuit?
+
+Each controller receives the same reference path, including a predefined bypass on obstacle routes. Pure pursuit gives the experiment a baseline that needs no training. It steers toward a waypoint 6 m ahead, while a separate proportional controller adjusts speed toward 5 m/s. Comparing SAC with this baseline tests what learning adds to the task of following a known path. Choosing a path around an obstacle is a separate planning problem.
+
 Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gym obstacle observations use analytic scene geometry. No brake shield was applied during this comparison.
 
 | Controller | Completed | Collision rate | Tracking RMSE | Mean return | Mean steering change |
@@ -36,7 +40,7 @@ Each SAC policy received **12,288 training transitions**. Within each seed, the 
 
 ![Tracking, completion and return by training seed](results/media/training-seeds.png)
 
-**The ten fixed-policy collisions all occurred in obstacle scenarios for training seed 109.** Adaptive training emphasized obstacles in both stages for that seed and completed all 60 routes. The other two seeds already had perfect completion with fixed training. Pure pursuit achieved the best overall tracking error, return and steering smoothness. These are short, mapped routes with a supplied bypass path. The result supports a curriculum effect in one failure-prone seed and shows why a classical baseline matters. Policy latency averaged 0.31 ms for fixed SAC, 0.37 ms for adaptive SAC and 0.005 ms for pure pursuit on this machine. [Per-seed results](results/per_seed.csv) · [Aggregate results](results/aggregate.csv)
+**The ten fixed-policy collisions all occurred in obstacle scenarios for training seed 109.** Adaptive training emphasized obstacles in both stages for that seed and completed all 60 routes. The other two seeds already had perfect completion with fixed training. Pure pursuit completed all 60 routes with lower average tracking RMSE (0.212 m versus 0.263 m for adaptive SAC), smoother steering and higher return. Adaptive practice helped SAC in its failure-prone seed, while pure pursuit remained the more accurate tracker overall on these short, mapped routes. Policy latency averaged 0.31 ms for fixed SAC, 0.37 ms for adaptive SAC and 0.005 ms for pure pursuit on this machine. [Per-seed results](results/per_seed.csv) · [Aggregate results](results/aggregate.csv)
 
 ![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
 
