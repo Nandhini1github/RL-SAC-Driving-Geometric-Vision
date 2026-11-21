@@ -30,6 +30,14 @@ def main():
                              joint_finishes=int(joint.sum()), contacts=int(policy.collision.sum()),
                              paired_arrival_difference_s=float((policy.first_arrival_s[joint] -
                                                                baseline.first_arrival_s[joint]).mean())))
+        matched_direct = data[(data.controller == "matched_direct_sac") & (data.training_seed == seed)]
+        if not matched_direct.empty:
+            matched_direct = matched_direct.set_index(["scene", "seed"]).sort_index()
+            assert policy.index.equals(matched_direct.index)
+            vs_direct = policy.success - matched_direct.success
+            per_seed[-1].update(direct_completions=int(matched_direct.success.sum()),
+                                gained_vs_direct=int((vs_direct == 1).sum()),
+                                lost_vs_direct=int((vs_direct == -1).sum()))
     # Resample policy seeds and route seeds. Each route seed retains all three scenes.
     diff = np.stack(differences)
     rng = np.random.default_rng(7701)

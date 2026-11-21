@@ -2,6 +2,8 @@
 
 **Can camera measurements alone train and drive a trajectory-tracking policy?** We trained SAC from scratch on lane, speed and obstacle estimates computed from rendered stereo frames. The reward and the training supervisor use visual measurements too. Frozen policies then drove in CARLA with stereo cameras and image-based speed estimation. Simulator truth scores the final experiments.
 
+**What improved the learned controller?** On 90 new Gymnasium routes repeated over three training seeds, SAC trained to correct a geometric controller completed **94.8%** of trials, compared with **67.4%** for direct-action SAC at the same training budget. Recorded contacts were **0 versus 16**. Tuned pure pursuit alone reached **95.6%** completion. On trials both it and residual SAC finished, the learned corrections reached the finish **0.38 s sooner on average**. The CARLA videos below show the original standalone policies. [Residual SAC experiment, plots and matched comparisons](docs/residual-experiment.md)
+
 **[Watch all three videos in full resolution with autoplay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/)** · [Technical report](docs/technical-report.md)
 
 ### Fixed SAC in CARLA

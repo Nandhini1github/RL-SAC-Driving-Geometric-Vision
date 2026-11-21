@@ -1,0 +1,113 @@
+{
+  "totals": {
+    "original_pursuit": {
+      "completions": 63,
+      "episodes": 90,
+      "contacts": 0,
+      "mean_episode_rmse_m": 0.24934489383458755,
+      "camera_loss_endings": 25,
+      "missing_speed_frame_fraction": 0.03357142857142857,
+      "by_scene": {
+        "straight": 27,
+        "bend": 15,
+        "obstacle": 21
+      }
+    },
+    "tuned_pursuit": {
+      "completions": 86,
+      "episodes": 90,
+      "contacts": 0,
+      "mean_episode_rmse_m": 0.16395852399275798,
+      "camera_loss_endings": 3,
+      "missing_speed_frame_fraction": 0.004961753152780649,
+      "by_scene": {
+        "straight": 29,
+        "bend": 27,
+        "obstacle": 30
+      }
+    },
+    "standalone_sac": {
+      "completions": 207,
+      "episodes": 270,
+      "contacts": 7,
+      "mean_episode_rmse_m": 0.3777013860607743,
+      "camera_loss_endings": 40,
+      "missing_speed_frame_fraction": 0.03739765434830715,
+      "by_scene": {
+        "straight": 83,
+        "bend": 82,
+        "obstacle": 42
+      }
+    },
+    "matched_direct_sac": {
+      "completions": 182,
+      "episodes": 270,
+      "contacts": 16,
+      "mean_episode_rmse_m": 0.3048005720359636,
+      "camera_loss_endings": 43,
+      "missing_speed_frame_fraction": 0.02333548283088828,
+      "by_scene": {
+        "straight": 83,
+        "bend": 58,
+        "obstacle": 41
+      }
+    },
+    "residual_sac": {
+      "completions": 256,
+      "episodes": 270,
+      "contacts": 0,
+      "mean_episode_rmse_m": 0.20738778396446106,
+      "camera_loss_endings": 5,
+      "missing_speed_frame_fraction": 0.00649071218532597,
+      "by_scene": {
+        "straight": 84,
+        "bend": 87,
+        "obstacle": 85
+      }
+    }
+  },
+  "residual_by_seed": [
+    {
+      "training_seed": 37,
+      "completions": 84,
+      "gained": 4,
+      "lost": 6,
+      "joint_finishes": 80,
+      "contacts": 0,
+      "paired_arrival_difference_s": -0.4787499999999999,
+      "direct_completions": 51,
+      "gained_vs_direct": 36,
+      "lost_vs_direct": 3
+    },
+    {
+      "training_seed": 83,
+      "completions": 85,
+      "gained": 4,
+      "lost": 5,
+      "joint_finishes": 81,
+      "contacts": 0,
+      "paired_arrival_difference_s": -0.5172839506172839,
+      "direct_completions": 44,
+      "gained_vs_direct": 44,
+      "lost_vs_direct": 3
+    },
+    {
+      "training_seed": 109,
+      "completions": 87,
+      "gained": 4,
+      "lost": 3,
+      "joint_finishes": 83,
+      "contacts": 0,
+      "paired_arrival_difference_s": -0.14096385542168674,
+      "direct_completions": 87,
+      "gained_vs_direct": 3,
+      "lost_vs_direct": 3
+    }
+  ],
+  "paired_completion_gain_pp": -0.7407407407407408,
+  "paired_bootstrap_95_pp": [
+    -7.037037037037037,
+    5.9259259259259265
+  ],
+  "meets_predeclared_criterion": false
+}
