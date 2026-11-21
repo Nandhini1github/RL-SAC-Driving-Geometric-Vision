@@ -6,14 +6,7 @@ Can a car learn steering and acceleration from camera measurements, then use the
 
 [![Animated replay of TD3 driving toward a parked car, showing the camera-fitted centerline, stereo depth, speed and brake override](results/carla_td3/media/carla-preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla)
 
-[Play the 1080p video with controls](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
-
-<details>
-<summary>Play the CARLA recording in the README</summary>
-
-<video controls autoplay muted playsinline loop width="960" src="https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4"></video>
-
-</details>
+[▶ Play the full 1080p CARLA video](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
 
 The cyan line follows the center of the lane fitted from visible paint in the left image. On the right, warm colors indicate nearby surfaces, cool colors indicate greater depth, and black pixels have no valid stereo match. The orange range trace uses the parked car’s bounding box for evaluation. The control indicator shows when the brake supervisor overrides TD3. Playback is half speed. The clock shows simulation time.
 
