@@ -1,0 +1,29 @@
+{
+  "server": "1.0",
+  "map": "Carla/Maps/Town10HD_Opt",
+  "controller": "median TD3 ensemble",
+  "checkpoint_sha256": {
+    "37": "9096fe5717a210413dfea5d86c7e0825e969e2c416e89c004c1897967742a670",
+    "83": "32d9ef26144311fd94dd33b554d51457a60e4c92ecc68f4284ed5444e5dc48c5",
+    "109": "169bd29884fbca16c8c3226f86bc93ff440e863663c1a3688586923fc48861ee"
+  },
+  "observation_source": "stereo RGB and ground-plane visual odometry",
+  "width": 960,
+  "height": 540,
+  "baseline_m": 0.32,
+  "hfov_deg": 80,
+  "dt_s": 0.1,
+  "frames": 101,
+  "collisions": 0,
+  "ego_spawn_xy_yaw": [
+    -24.337173,
+    -57.747787,
+    0.596735
+  ],
+  "parked_spawn_xy_yaw": [
+    7.718659,
+    -57.400124,
+    359.976562
+  ],
+  "end_reason": "stopped under override"
+}

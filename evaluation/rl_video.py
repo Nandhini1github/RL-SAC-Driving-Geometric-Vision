@@ -1,4 +1,4 @@
-"""Render a held-out bicycle-model rollout with metric axes and saved SAC weights."""
+"""Render a held-out bicycle-model rollout with metric axes and frozen TD3 and imitation policies."""
 import argparse
 import subprocess
 import cv2
@@ -6,26 +6,17 @@ import imageio_ffmpeg
 import numpy as np
 import torch
 from PIL import Image
-from stable_baselines3 import SAC
-from driving_environment.route import RouteEnv, pursuit
-from evaluation.figures import MEDIA, OUT
+from driving_environment.route import RouteEnv
 from evaluation.carla_media import label, INK, MUTED, TEAL, AMBER
 
 
-def main(seed, compare_td3=False):
+def main(seed):
     torch.set_num_threads(1)
-    if compare_td3:
-        from sac_training.td3_camera import OUT as output, SETTINGS, base_command, load_actor
-        models = [None, load_actor("clone",37), load_actor("final",37)]
-        names = ("Tuned pure pursuit", "Imitation only", "TD3 after imitation")
-        baseline = lambda obs: base_command(obs, SETTINGS)
-        title = "From driving demonstrations to TD3"
-    else:
-        output = MEDIA
-        models=[None]+[SAC.load(OUT/name,device="cpu") for name in ("fixed","adaptive")]
-        names = ("Pure pursuit","SAC with fixed training","SAC with adaptive training")
-        baseline = pursuit
-        title = "How closely does each car follow the lane?"
+    from td3_training.td3_camera import OUT as output, SETTINGS, base_command, load_actor
+    models = [None, load_actor("clone",37), load_actor("final",37)]
+    names = ("Tuned pure pursuit", "Imitation only", "TD3 after imitation")
+    baseline = lambda obs: base_command(obs, SETTINGS)
+    title = "From driving demonstrations to TD3"
     envs=[RouteEnv() for _ in models]
     obs=[env.reset(seed=seed,options={"scene":"obstacle"})[0] for env in envs]
     tracks=[[] for _ in models]
@@ -99,8 +90,6 @@ def main(seed, compare_td3=False):
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument("--seed",type=int,help="Held-out obstacle route to replay")
-    parser.add_argument("--compare-td3",action="store_true")
+    parser.add_argument("--seed",type=int,default=31000,help="Held-out obstacle route to replay")
     args=parser.parse_args()
-    seed=args.seed if args.seed is not None else (31000 if args.compare_td3 else 8002)
-    main(seed,args.compare_td3)
+    main(args.seed)

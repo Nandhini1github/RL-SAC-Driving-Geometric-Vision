@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>Camera-only driving demos · RL-SAC-Driving-Geometric-Vision</title>
+  <title>Camera-only driving demos · RL-TD3-Driving-Geometric-Vision</title>
   <style>
     * { box-sizing: border-box }
     body { margin: 0; background: #10171c; color: #edf3f5; font: 1rem/1.5 Inter, system-ui, sans-serif }
@@ -22,32 +22,19 @@
   <main>
     <h1>Camera-only driving demos</h1>
     <nav aria-label="Recordings and project">
-      <a href="#td3">TD3 and imitation</a>
-      <a href="#fixed">Fixed SAC</a>
-      <a href="#adaptive">Adaptive SAC</a>
-      <a href="#comparison">Controller comparison</a>
-      <a href="https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision#readme">Results and methods ↗</a>
+      <a href="#carla">TD3 stereo drive in CARLA</a>
+      <a href="#td3">TD3 and imitation in Gymnasium</a>
+      <a href="https://github.com/Nandhini1github/RL-TD3-Driving-Geometric-Vision#readme">Results and methods ↗</a>
     </nav>
+    <section id="carla">
+      <h2>TD3 stereo guided braking in CARLA</h2>
+      <video aria-label="Live stereo depth, fitted lane and TD3 braking telemetry" src="results/carla_td3/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
+      <p>The cyan centerline comes from camera-detected lane markings. Stereo estimates the range to the parked vehicle. Watch the control indicator switch from TD3 to the deterministic brake override as the car approaches. The orange range trace is the independent reference used for evaluation.</p>
+    </section>
     <section id="td3">
       <h2>From driving demonstrations to TD3</h2>
       <video aria-label="Pure pursuit, imitation only, and final TD3 on replication route 31000" src="results/td3/controllers.mp4" autoplay muted playsinline loop controls></video>
       <p>The two neural policies both learned from the geometric controller's demonstrations. The third row also received reward-based TD3 updates. Both networks issue steering and acceleration directly. This is the first obstacle route of the independent Gymnasium replication, using training seed 37.</p>
-    </section>
-    <section id="fixed">
-      <h2>Fixed SAC in CARLA</h2>
-      <video aria-label="Fixed SAC braking in CARLA" src="results/carla_sensor/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
-      <p>The cyan line follows the lane estimated from the left camera. The orange brake indicator shows when the safety supervisor took over. Final camera-to-obstacle clearance was 3.50 m.</p>
-    </section>
-    <section id="adaptive">
-      <h2>Camera-based SAC with adaptive training in CARLA</h2>
-      <video aria-label="Camera-based SAC with adaptive training braking in CARLA" src="results/carla_sensor_adaptive/media/carla-stereo-stop.mp4" autoplay muted playsinline loop controls></video>
-      <p>During training, a fixed rule chose which scenarios to practice more often. Here the trained policy uses camera measurements to drive the same approach with the same brake supervisor. Final camera-to-obstacle clearance was 3.74 m.</p>
-    </section>
-    <section id="comparison">
-      <h2>How closely does each car follow the lane?</h2>
-      <video aria-label="Lane tracking error for three controllers on obstacle route 8002" src="results/media/controllers.mp4?route=8002" autoplay muted playsinline loop controls></video>
-      <p>During inference, each trained SAC policy uses camera measurements to steer and accelerate. The gray line is the lane center and the teal line is the path driven. On this route, pure pursuit averaged 0.24 m tracking RMSE, adaptive SAC 0.25 m and fixed SAC 0.29 m.</p>
-      <p>Route 8002 was the first of two held-out obstacle routes all three controllers finished for training seed 37. The <a href="https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision#reinforcement-learning-on-held-out-routes">full comparison</a> includes all 20 obstacle routes for each seed.</p>
     </section>
   </main>
 </body>

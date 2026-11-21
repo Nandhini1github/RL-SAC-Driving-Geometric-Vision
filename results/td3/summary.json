@@ -32,22 +32,6 @@
         "obstacle": 177
       }
     },
-    "residual": {
-      "episodes": 540,
-      "successes": 512,
-      "contacts": 0,
-      "mean_episode_rmse_m": 0.2199891076570838,
-      "completions_per_run": [
-        168,
-        171,
-        173
-      ],
-      "scene_successes": {
-        "straight": 167,
-        "bend": 175,
-        "obstacle": 170
-      }
-    },
     "final": {
       "episodes": 540,
       "successes": 537,

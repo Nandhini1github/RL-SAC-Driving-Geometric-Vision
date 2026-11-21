@@ -1,241 +1,94 @@
-# RL-SAC-Driving-Geometric-Vision
+# RL-TD3-Driving-Geometric-Vision
 
-**Can reinforcement learning improve on the controller it learned from?** In Gymnasium, a car follows 40 m routes using lane position, speed and obstacle features estimated from stereo images, plus its previous commands. A geometric controller called pure pursuit supplies the initial driving demonstrations. Offline TD3 (Twin Delayed Deep Deterministic Policy Gradient) then uses camera-derived rewards to learn steering and acceleration. During a drive the neural controller issues both commands directly.
+Can a car learn steering and acceleration from camera measurements, then use the same policy in a different simulator? A frozen TD3 ensemble completed **598 of 600 held-out Gymnasium routes** and drove a straight approach to a parked car in **CARLA 1.0**. In CARLA, stereo vision measured the obstacle ahead, TD3 drove the approach, and a deterministic brake brought the vehicle to rest with **3.25 m of camera-to-box clearance**.
 
-### TD3 versus its driving teacher
+## Watch TD3 drive in CARLA
 
-**The TD3 ensemble finished 598 of 600 held-out routes (99.7%). Its tuned pure-pursuit teacher finished 584 (97.3%). Both recorded zero contacts.** At each step, three independently initialized TD3 policies see the same camera features. The car takes the middle of their three steering commands and the middle of their three acceleration commands. The three policies had already been trained and frozen before this test.
+[![Animated replay of TD3 driving toward a parked car, showing the camera-fitted centerline, stereo depth, speed and brake override](results/carla_td3/media/carla-preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla)
 
-The clearest gain came on bends, where TD3 completed **200/200** routes and its teacher completed **189/200**. Across all scenes, the paired completion gain was **2.33 percentage points** (adjusted interval **+0.83 to +4.00**). The teacher tracked the centerline more closely, with lateral RMSE of 0.174 m versus 0.218 m. An imitation-only ensemble completed 586/600 on the same cases. [Per-route scores and analysis](docs/td3-committee.md)
+[Play the 1080p video with controls](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#carla) · [Download the recording](results/carla_td3/media/carla-stereo-stop.mp4) · [Frame-by-frame telemetry](results/carla_td3/frames.csv)
 
-![Unfinished routes out of 200 per scene for the TD3 ensemble and its tuned teacher](results/td3/committee/head-to-head.png)
+The cyan line follows the center of the lane fitted from visible paint in the left image. On the right, warm colors indicate nearby surfaces, cool colors indicate greater depth, and black pixels have no valid stereo match. The orange range trace uses the parked car’s bounding box for evaluation. The control indicator shows when the brake supervisor overrides TD3. Playback is half speed. The clock shows simulation time.
 
-The head-to-head uses the validation-tuned teacher with a 4.5 m lookahead and a 4.0 m/s speed target. The same cameras, route seeds, action limits and finish rule apply to both controllers. The independent evaluator counts a finish when the car reaches 39 m without contact or lane departure. [Benchmark protocol and additional controls](docs/td3-committee.md)
+## Why TD3?
 
-An earlier replication evaluated the three TD3 policies individually on 300 routes each. They completed 880/900 trials (97.8%) with zero recorded contacts. Their teacher completed 288/300 (96.0%). The paired interval included zero. [Replication and limitations](docs/td3-experiment.md)
+Steering and acceleration are continuous. TD3 learns an actor that can issue both commands directly from lane position, camera-estimated speed, obstacle geometry and its previous commands. The actor first imitates driving demonstrations. During offline training, two critics estimate how much future camera-derived reward an action will earn. TD3 uses the lower estimate in its training target and updates the actor less often than the critics. These choices limit the effect of overoptimistic action values. Keeping an imitation term during training anchors the actor to demonstrated behavior.
 
-**[Watch the single-policy TD3 replay and CARLA driving videos](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)** · [Technical report](docs/technical-report.md)
+We tested whether reward-based learning added anything beyond imitation. On the same 600 routes, an ensemble of three imitation-only policies finished **586**. Three policies that also received TD3 updates finished **598**, with zero recorded contacts for both ensembles. Both used the median of the three steering predictions and the median of the three acceleration predictions. [Training and checkpoint selection](docs/td3-experiment.md) · [Paired experiment](docs/td3-committee.md)
 
-### What did SAC add?
+## What the stereo cameras measured
 
-On 90 separate Gymnasium routes repeated over three training seeds, SAC trained to correct a geometric controller completed **94.8%** of trials, compared with **67.4%** for direct-action SAC at the same training budget. Recorded contacts were **0 versus 16**. On trials both residual SAC and its geometric controller finished, the learned corrections reached the finish **0.38 s sooner on average**. The CARLA videos show the standalone SAC policies using stereo perception and a deterministic safety brake. [Residual SAC experiment and matched comparisons](docs/residual-experiment.md)
-
-### Fixed SAC in CARLA
-
-[![Fixed SAC approach showing the camera view, stereo depth, visual speed and brake override.](results/carla_sensor/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#fixed)
-
-<details>
-<summary>Play the full 1080p video with controls</summary>
-
-https://github.com/user-attachments/assets/c6cfebe8-f0f7-4b22-98b1-e01f7c7706fa
-
-</details>
-
-The cyan line is the camera-fitted lane used for steering. Speed comes from pavement motion between left-camera frames. Stereo disparity supplies obstacle range and bearing. The adjacent plot overlays the independent reference range for evaluation.
-
-### Adaptive SAC in CARLA
-
-[![Camera-based SAC with adaptive training approaches to the same parked vehicle, including the brake override and stop.](results/carla_sensor_adaptive/media/carla-preview.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#adaptive)
-
-## Geometric vision on a live CARLA approach
-
-Both seed-37 policies used the same camera rig, nominal 32 m parked-vehicle scenario, and deterministic brake. Fixed spawn coordinates placed the vehicles before driving. At each control step SAC received measured lane offset, heading, three lookaheads, visual speed, stereo obstacle features and its own preceding commands. The evaluator read actor velocity, pose, the box geometry, map centerline and reference depth after each command. Each column represents one run.
-
-| Metric | Camera-based SAC with fixed training | Camera-based SAC with adaptive training |
-|---|---:|---:|
-| Frames scored | 81 | 78 |
-| Recorded collisions | 0 | 0 |
-| End condition | stopped under override | stopped under override |
-| Final camera-to-box range | 3.50 m | 3.74 m |
-| Brake override frames | 32 | 28 |
-| True lateral tracking RMSE | 0.140 m | 0.047 m |
-| Camera lane-offset estimation RMSE | 0.060 m | 0.039 m |
-| Visual speed estimation RMSE | 1.32 m/s | 0.96 m/s |
-| Stereo obstacle range MAE | 0.38 m | 0.41 m |
-| Frames missing lane or speed | 2 | 3 |
-
-SAC requested steering and acceleration. In both runs the deterministic supervisor applied full braking and held the vehicle at rest. Final clearance measures the distance from the left camera to the front-facing surface of the parked vehicle's bounding box. The independent depth camera scored the fixed run as follows.
-
-| Reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
-|---|---:|---:|---:|
-| 3 to 8 m | 69.5% | 0.37 m | 7.37 m |
-| 8 to 16 m | 57.2% | 1.57 m | 7.85 m |
-| 16 to 30 m | 63.6% | 5.99 m | 22.42 m |
-
-![Camera range, override timing and dense depth error](results/carla_sensor/media/carla.png)
-
-Median camera processing time was 328 ms for the fixed run and 296 ms for the adaptive run. One straight road per checkpoint limits conclusions about transfer. [Fixed frame telemetry](results/carla_sensor/frames.csv) / [Adaptive frame telemetry](results/carla_sensor_adaptive/frames.csv)
-
-Two independent checks isolate calibration and matching. Fitting a nonparallel synthetic rig from noisy board corners yielded **0.278 px** held-out 95th-percentile vertical rectification error. On ideal textured planes the depth MAE grew from **0.056 m at 4 m** to **0.772 m at 16 m**. [Calibration results](results/calibration.json) · [Synthetic depth plot](results/media/stereo.png)
-
-## Reinforcement learning on held-out routes
-
-### Why pure pursuit?
-
-Each controller receives the same image-based estimates of the painted lane, including the visible bypass on obstacle routes. Pure pursuit gives the experiment a baseline that needs no training. It steers toward a waypoint 6 m ahead, while a separate proportional controller adjusts speed toward 5 m/s. Comparing SAC with this baseline tests what learning adds to the task of following a known path. Choosing a path around an obstacle is a separate planning problem.
-
-Each SAC policy received **12,288 training transitions**. Within each seed, the two arms started from identical actor, critic, optimizer and replay states after 4,096 shared transitions. Each then trained for two equal stages. A uniform curriculum and a validation-driven curriculum faced the same 20 straight, 20 bend and 20 obstacle routes. Gymnasium renders two grayscale camera images per step. Stereo disparity supplies obstacle range, lane paint supplies the path features, and image motion supplies speed. Rewards and validation decisions use these measured quantities. No brake shield was applied during this comparison.
-
-| Controller | Completed | Collision rate | Tracking RMSE | Mean return | Mean steering change |
-|---|---:|---:|---:|---:|---:|
-| Pure pursuit + speed control | 45/60 | 0.0% | 0.236 m | -1.38 | 0.0133 |
-| Camera-based SAC with fixed training | 136/180 | 0.6% | 0.360 m | -28.22 | 0.0751 |
-| Camera-based SAC with adaptive training | 115/180 | 0.0% | 0.313 m | -35.93 | 0.0696 |
-
-![Camera-only training comparison by seed](results/media/training-seeds.png)
-
-The independent evaluator counts a completion when the vehicle gets within one metre of the 40 m finish without a recorded contact or lane departure. Training and validation use visual progress, a near-obstacle cue and loss of detected lane markings. The reward can disagree with true completion when visual speed drifts or paint becomes ambiguous. The same 60 held-out cases recur for all three training seeds. [Per-seed results](results/per_seed.csv) / [Camera feature accuracy](results/camera_accuracy.json)
-
-| Held-out scene | Fixed SAC finishes | Adaptive SAC finishes | Camera lane-offset RMSE |
-|---|---:|---:|---:|
-| Straight | 55/60 | 54/60 | 0.09 m |
-| Bend | 57/60 | 43/60 | 0.53 m |
-| Obstacle | 24/60 | 18/60 | 0.77 m |
-
-Across the three seeds, SAC completed 21 more trials with fixed training than with adaptive training. Adaptive SAC had a lower average tracking error. Pure pursuit produced the smoothest steering and lowest tracking error of the three. Both learned controllers struggled most on obstacle bypasses. The last column measures lane-estimation error on four held-out pure-pursuit runs per scene. Its increase from 0.09 m on straights to 0.77 m on bypasses identifies a perception weakness worth testing separately. The step budget was fixed in advance. These results measure performance at that budget and leave convergence open.
-
-![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
-
-### Why did some routes go unfinished?
-
-The most common reason was loss of the camera speed estimate. The simulator ends an episode after three consecutive frames without usable speed or lane measurements. In **96 of 124 unsuccessful trials**, the lane was still visible on all three frames, but the visual odometry could not measure speed. The vehicle can still be moving when its episode ends. The reference evaluator checks whether the car reached 39 m on the 40 m route without a contact or a lane departure.
-
-| Reason the trial did not count as a completion | Pure pursuit | Fixed SAC | Adaptive SAC |
-|---|---:|---:|---:|
-| Speed estimate unavailable for three frames while lane remained visible | 15 | 29 | 52 |
-| Both speed and lane estimates had gaps across three frames | 0 | 0 | 2 |
-| Estimated lane offset exceeded the 2.6 m limit | 0 | 12 | 5 |
-| Camera estimated 40 m of travel before the car reached the finish threshold | 0 | 2 | 4 |
-| Episode reached its 16 s time limit | 0 | 0 | 2 |
-| Car reached the finish after a recorded obstacle contact | 0 | 1 | 0 |
-| **Total unsuccessful trials** | **15** | **44** | **65** |
-
-All 17 visual lane-offset warnings occurred on obstacle bypasses. The independent evaluator recorded zero true lane departures in those runs. These counts identify the first condition that ended a run or the contact that disqualified a finish. Determining why image motion became unreliable on each frame would require a separate test of the speed estimator. [Replayed episodes and end signals](results/unfinished_routes.csv)
-
-### How closely does each controller follow the lane?
-
-The replay shows **inference**. At each step, each saved SAC policy turns camera-derived lane, speed and obstacle measurements into steering and acceleration. The policy weights stay fixed. Pure pursuit uses the same measurements to steer toward a point on the lane. The overhead view and tracking error come from the evaluator after each action.
-
-[![Three controllers completing a painted obstacle bypass with their running lateral tracking errors.](results/media/controllers.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#comparison)
-
-On route **8002**, all three finished. Pure pursuit stayed closest to the painted centerline at **0.24 m** lateral tracking RMSE, followed by SAC with adaptive training at **0.25 m** and SAC with fixed training at **0.29 m**. We selected the first obstacle route by seed that all three completed so their errors could be compared over the full bypass. Only two of the 20 obstacle routes met that criterion for training seed 37. The teal trails extend beyond the 40 m marker because the camera-based distance estimate reached 40 m after the vehicles crossed the reference finish.
-
-Route **8000** illustrates a different outcome. Both SAC runs ended after three consecutive frames without a camera speed estimate, even though the lane was still visible. Pure pursuit finished. Both routes count in the results above. [All seed-37 test episodes](results/control/heldout.csv)
-
-### How long does SAC take to choose an action?
-
-On this Windows machine, both saved policies took **0.13 ms per action at the median**. The 95th percentile was **0.60 ms** for fixed training and **0.57 ms** for adaptive training. Each timing starts just before the call to predict and ends when the steering and acceleration commands return.
-
-We recorded 94 camera-derived observations from one pure-pursuit replay, warmed up both policies, then timed 1,880 predictions per policy on the same observations. Each call processed one observation on one PyTorch CPU thread. The live CARLA runs measured camera processing separately at 328 ms and 296 ms per frame at the median. Those timings come from different experiments. [Benchmark code](evaluation/inference_latency.py) · [Recorded timings](results/inference_latency.json)
-
-## What the training agent learned from the logs
-
-During adaptive training, a fixed rule uses camera-derived validation scores to choose which scenario gets more practice. During driving, SAC uses camera measurements to choose steering and acceleration. In a separate seed-37 experiment, local **Qwen2.5-7B** read the same kinds of metrics and chose bends at both training stages. Each decision allocated 60% of the next stage to bends. That policy completed **54/60** held-out routes with **0.231 m** tracking RMSE. Fixed SAC completed **49/60** on the same seed. This comparison covers one training seed. The model acts only between training stages. [Model reasons and validation inputs](results/control/llm_decisions.json) / [Scored episodes](results/control/llm_heldout.csv)
-
-## STAR interview summary
-
-**Situation.** A controller on a simulated road must deal with imperfect measurements of lane position, obstacles and speed. I wanted the learning process to experience those errors from its first step.
-
-**Task.** Train SAC from camera measurements and test whether adaptive practice improves performance under the same training budget.
-
-**Action.** I rendered stereo training pairs, estimated lane geometry and visual speed, built camera-based rewards and episode endings, and tested that changing hidden state behind identical frames could not change the training signals. I compared fixed SAC, adaptive SAC and pure pursuit, then ran both learned controllers in CARLA with camera-only inputs.
-
-**Result.** Fixed SAC completed 136/180 held-out trials and adaptive SAC completed 115/180. In CARLA the fixed and adaptive runs recorded 0 and 0 collisions respectively, with 32 and 28 frames of brake override. The action log distinguishes the policy's request from the command that reached the vehicle.
-
-## System architecture
-
-### Where reinforcement learning happens
-
-**How the car learns.** In Gymnasium, SAC steers and changes speed. After each move, stereo images show the painted lane and nearby obstacle. Visual odometry estimates movement, and the reward function scores the camera measurements. Staying close to the path earns a better score. Seeing an obstacle very close ahead or losing the lane incurs a penalty. SAC saves those experiences, practices on a sample of them, and updates how it drives on the next attempt.
+The CARLA rig used two synchronized 960 × 540 RGB cameras spaced 0.32 m apart. Rectification aligned their image rows. OpenCV StereoSGBM matched features between the views, producing a horizontal disparity `d`. Optical depth was `Z = fB/d`, with focal length `f` in pixels and camera separation `B` in metres. The controller used the estimated range and bearing of a connected group of points above the road in the driving lane. Successive pavement images supplied speed. [Geometry, calibration and coordinate frames](docs/technical-report.md)
 
 ```mermaid
 flowchart LR
-    A["Steer and change speed"] --> B["See what happened<br/>and get a score"]
-    B --> C["Save driving<br/>experiences"]
-    C --> D["Learn from past drives<br/>and try again"]
+    A[Stereo cameras] --> B[Lane, visual speed and obstacle range]
+    B --> C[Frozen TD3 ensemble]
+    C --> D[Steering and acceleration request]
+    B --> E[Brake supervisor]
+    D --> E
+    E --> F[CARLA vehicle]
+    F --> A
 ```
 
-**How practice is chosen.** Between training stages, we test the latest policy on the same validation routes. The fixed-training version keeps the same mix of routes. The adaptive version uses a rule or a local language model to choose which scenario to practice more often.
+The same three Gymnasium checkpoints ran unchanged on Town10HD_Opt. The simulator supplied the initial scene and rendered sensor images. During driving the actor and brake received camera estimates. Reference depth, vehicle pose and velocity, map centerline, parked box and collision events were used for scoring. [Run metadata and checkpoint hashes](results/carla_td3/run.json) · [Control loop](carla_integration/drive.py)
 
-```mermaid
-flowchart LR
-    A["Save the current<br/>driving policy"] --> B["Test it on straight roads,<br/>bends and obstacle routes"]
-    B --> C["Choose what to<br/>practice more"]
-    C --> D["Train for another<br/>4,096 driving steps"]
-```
+| Single CARLA approach | Measured result |
+|---|---:|
+| Control frames / frames with brake override | 101 / 25 |
+| Recorded collisions | 0 |
+| Final distance from left camera to parked box | 3.25 m |
+| Stereo obstacle-range mean absolute error | 0.34 m |
+| Lane-offset estimation RMSE | 0.058 m |
+| Vehicle tracking RMSE against the lane center | 0.048 m |
+| Camera speed RMSE against simulator velocity | 0.73 m/s |
+| Median vision time / median TD3 ensemble inference time on CPU | 92.49 ms / 0.42 ms |
 
-[Gymnasium environment](driving_environment/route.py) / [SAC training code](sac_training/experiment.py)
+![TD3 approach with measured stereo range versus box range, visual speed during brake override, and depth error by distance](results/carla_td3/media/carla.png)
 
-### How CARLA uses the trained policy
+The 0.34 m range error describes one obstacle surface. Dense depth was less accurate at longer range. At 3–8 m, 36.6% of reference pixels had valid predictions, with 0.59 m mean absolute error. At 16–30 m, coverage was 64.5% and mean absolute error was 5.95 m. This single drive demonstrates closed-loop transfer on a straight road. Generalization to traffic, curved roads and weather requires additional CARLA trials. [Depth results by range](results/carla_td3/metrics.json) · [Replayable stereo examples](results/carla_td3/sample_points.json)
 
-**The live drive uses inference only.** We tested two camera-based policies from seed 37, one trained with a fixed scenario mix and one with an adaptive mix. At each tick the actor predicts steering and a signed longitudinal command. The brake supervisor can replace that longitudinal command with full braking while retaining the actor's steering. The vehicle's motion produces the next camera pair. [CARLA control loop](carla_integration/drive.py)
+## Gymnasium route completion
 
-```mermaid
-flowchart TD
-    RGB[Synchronized stereo RGB] --> Depth[Rectification and SGBM depth]
-    Depth --> Range[3D corridor obstacle estimate]
-    Range --> Obs[Control observation]
-    RGB --> Lane[Visible lane center and lookahead points]
-    Lane --> Obs
-    RGB --> Motion[Speed from pavement motion]
-    Motion --> Obs
-    Obs --> Actor[Trained SAC actor]
-    Actor -->|Requested controls| Brake[Deterministic brake supervisor]
-    Range -->|Obstacle range| Brake
-    Checks[Sensor availability, coverage and frame age] --> Brake
-    Motion --> Brake
-    Brake -->|Applied steering, throttle and brake| Ego[CARLA ego vehicle]
-    Depth -.-> Eval[Compare estimates with simulator references]
-    Range -.-> Eval
-    GT[Reference depth, actor box, pose and speed] -.-> Eval
-    Lane -.-> Eval
-    Motion -.-> Eval
-```
+Each controller drove the same 200 straight, 200 bend and 200 obstacle-bypass cases. The evaluator counted a finish when the vehicle reached 39 m on a 40 m route without a recorded contact or lane departure. Pure pursuit supplied the demonstrations, using a 4.5 m lookahead and 4.0 m/s speed target.
 
-Both training and deployment estimate lane features, speed and obstacle geometry from camera images. The simulator uses its world model to generate scenes and images. During control, the map, actor state and reference depth are isolated from the policy and brake.
+| Controller | Clean finishes | Contacts | Mean episode lateral RMSE |
+|---|---:|---:|---:|
+| TD3 ensemble | **598/600 (99.7%)** | 0 | 0.218 m |
+| Imitation-only ensemble | 586/600 (97.7%) | 0 | 0.174 m |
+| Tuned pure pursuit | 584/600 (97.3%) | 0 | 0.174 m |
+
+TD3 gained 14 finishes over its teacher. The paired completion gain was 2.33 percentage points, with an adjusted interval of +0.83 to +4.00. On bends the ensemble finished all 200 routes and the teacher finished 189. The teacher followed the centerline more closely on average. In the earlier 300-route replication, the same teacher completed 288/300 (96.0%). [Per-route results and uncertainty](docs/td3-committee.md) · [Earlier replication](docs/td3-experiment.md) · [Gymnasium replay](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#td3)
+
+![Unfinished routes by scene for the TD3 ensemble and its teacher](results/td3/committee/head-to-head.png)
 
 ## Reproduce on Windows
 
-Tested with Python 3.12.12, Windows, CPU PyTorch 2.8.0 and an RTX 5060 Laptop GPU (8 GB) for CARLA rendering. From this repository in PowerShell:
+Use Python 3.12 from the repository root. The saved weights, stereo sample pairs and evaluation results are included. These commands replay the geometry and rebuild the head-to-head plot without launching CARLA.
 
 ```powershell
 uv venv --python 3.12
 uv pip install --python .venv/Scripts/python.exe torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv/Scripts/python.exe -r requirements-control.txt
-$python = ".\.venv\Scripts\python.exe"
-& $python -m evaluation.verify_camera_inputs
-& $python -m evaluation.camera_accuracy
-& $python -m evaluation.calibration
-& $python -m evaluation.stereo_benchmark
-& $python -m evaluation.replay_stereo
+$py = ".\.venv\Scripts\python.exe"
+& $py -m evaluation.verify_camera_inputs
+& $py -m evaluation.replay_stereo
+& $py -m evaluation.td3_committee head-to-head
 ```
 
-The last command runs obstacle localization on the **published stereo frames** and then scores depth against the saved references. It works without a running simulator.
+To repeat the live run, set `$carlaDir` to the installed CARLA 1.0 Win64 shipping folder. Install its matching client wheel and start a dedicated offscreen server with Town10HD_Opt loaded.
 
 ```powershell
-foreach ($trial in 37,83,109) { & $python -m sac_training.experiment --seed $trial }
-& $python -m evaluation.figures
-& $python -m evaluation.across_seeds
-& $python -m evaluation.rl_video
-& $python -m evaluation.inference_latency
-& $python -m evaluation.unfinished_routes
-```
-
-Each training directory contains episode logs, validations, final tests, decisions and checkpoints. Training recreates the local common replay buffer. For the optional local LLM experiment, run a local Ollama server with `qwen2.5:7b` installed, then run `& $python -m agentic_supervisor.local_llm` after training seed 37. The decision log identifies the source if the model is unavailable and the deterministic selector takes over.
-
-For live driving, set `$carlaDir` to an extracted **CARLA 1.0 Win64 shipping** directory. Use its matching cp312 Windows client wheel and a dedicated server. The capture temporarily enables synchronous stepping and restores world settings on exit.
-
-```powershell
-$wheel = Get-ChildItem "$carlaDir/PythonAPI/carla/dist/carla-1.0-cp312-cp312-win_amd64.whl"
+$wheel = Get-Item "$carlaDir/PythonAPI/carla/dist/carla-1.0-cp312-cp312-win_amd64.whl"
 uv pip install --python .venv/Scripts/python.exe $wheel.FullName
-& "$carlaDir/CarlaUnreal.exe" -RenderOffScreen -nosound -quality-level=Low -carla-rpc-port=2540
+Start-Process "$carlaDir/CarlaUnreal.exe" -ArgumentList '-RenderOffScreen','-nosound','-quality-level=Low','-carla-rpc-port=2540' -WindowStyle Hidden
 ```
 
-When Town10HD_Opt is ready, run these from the project environment in a second PowerShell window:
+Once the server is ready, run the capture and render the video. The capture restores the server’s settings when it exits. To keep the published recording intact, write a repeat to separate directories.
 
 ```powershell
-.\.venv\Scripts\python.exe -m carla_integration.drive --port 2540
-.\.venv\Scripts\python.exe -m evaluation.carla_media --sensor-run
+& $py -m carla_integration.drive --port 2540 --output .runtime/repeat --capture .runtime/repeat-frames
+& $py -m evaluation.carla_media --run-dir .runtime/repeat --capture-dir .runtime/repeat-frames
 ```
 
-The default uses the seed-37 fixed SAC checkpoint. Repeat with `--checkpoint results/control/adaptive.zip --output results/carla_sensor_adaptive --capture .runtime/adaptive_capture` for adaptive SAC. For its media, pass `--run-dir results/carla_sensor_adaptive --capture-dir .runtime/adaptive_capture` to `evaluation.carla_media`. GPU rendering, weather, ambient objects and CPU load can change pixel metrics and wall-clock timings. The included Dockerfile describes a portable CPU experiment environment; the native Windows workflow above was exercised. The [technical report](docs/technical-report.md) covers the geometry, SAC objective, reward, vehicle dynamics, control transfer and limitations.
+[Train TD3 from the demonstration dataset](docs/td3-experiment.md) · [Reproduce all six controller evaluations](docs/td3-committee.md) · [Technical report](docs/technical-report.md)

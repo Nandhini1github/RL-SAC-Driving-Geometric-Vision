@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from sac_training.td3_camera import OUT, SCENES, SEEDS, STAGES
+from td3_training.td3_camera import OUT, SCENES, SEEDS, STAGES
 
 
 def read_scores(path, count=180):
@@ -82,7 +82,7 @@ def confirmation():
 def main():
     teacher = read_scores(OUT/"pursuit.csv")
     scores = {arm:[read_scores(OUT/str(seed)/f"{arm}.csv") for seed in SEEDS]
-              for arm in ("td3","clone","residual","final")}
+              for arm in ("td3","clone","final")}
     scores["pursuit"] = [teacher]
     summary = describe(scores)
     rng = np.random.default_rng(804)
@@ -104,16 +104,16 @@ def main():
     output=json.dumps(report, indent=2)
     (OUT/"summary.json").write_text(output+"\n")
     print(output)
-    arms = ["pursuit", "residual", "clone", "td3", "final"]
+    arms = ["pursuit", "clone", "td3", "final"]
     selection_label = ("Imitation warm start (selected)" if all(s["td3"] == 0 for s in selected.values())
                        else "Validation-selected TD3 branch")
-    names = ["Tuned pure pursuit", "Residual SAC", "Continuing imitation only", selection_label, "TD3 final RL checkpoint"]
-    colors = ["#586872", "#69958c", "#b48047", "#246c92", "#53458a"]
+    names = ["Tuned pure pursuit", "Continuing imitation only", selection_label, "TD3 final RL checkpoint"]
+    colors = ["#586872", "#b48047", "#246c92", "#53458a"]
     x = np.arange(len(SCENES))
     fig, ax = plt.subplots(figsize=(8.2,4.4), layout="constrained")
     for j, (arm, name, color) in enumerate(zip(arms,names,colors)):
         rates = [summary[arm]["scene_successes"][s]/(summary[arm]["episodes"]/3)*100 for s in SCENES]
-        ax.bar(x+(j-2)*.17, rates, .16, label=name, color=color)
+        ax.bar(x+(j-1.5)*.17, rates, .16, label=name, color=color)
     ax.set(xticks=x, xticklabels=["Straight","Bend","Obstacle"], ylim=(0,105),
            ylabel="Routes completed (%)", title="Camera-only controllers on 180 new routes")
     ax.legend(loc="lower center", ncol=2)

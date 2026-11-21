@@ -1,0 +1,38 @@
+{
+  "bins": [
+    {
+      "range_m": "3 to 8",
+      "coverage": 0.3663659599467552,
+      "mae_m": 0.5852092414416395,
+      "rmse_m": 8.526270151724892
+    },
+    {
+      "range_m": "8 to 16",
+      "coverage": 0.5578092970793532,
+      "mae_m": 1.7136777898552538,
+      "rmse_m": 8.985325710547146
+    },
+    {
+      "range_m": "16 to 30",
+      "coverage": 0.6447997790649352,
+      "mae_m": 5.952863184025325,
+      "rmse_m": 22.17476910618939
+    }
+  ],
+  "median_ms": 92.4915000796318,
+  "p95_ms": 116.09150003641844,
+  "range_mae_m": 0.3356555057364951,
+  "range_rmse_m": 0.47935306744011696,
+  "detected_frames": 101,
+  "mean_coverage": 0.5832383533492237,
+  "tracking_rmse_m": 0.04787777304323409,
+  "shield_frames": 25,
+  "final_box_range_m": 3.246417289166433,
+  "peak_speed_mps": 4.925785289320569,
+  "policy_median_ms": 0.41550002060830593,
+  "policy_p95_ms": 0.4806998185813427,
+  "policy_frames": 101,
+  "speed_rmse_mps": 0.7303184765182118,
+  "lane_offset_rmse_m": 0.05794965445451367,
+  "missing_input_frames": 0
+}

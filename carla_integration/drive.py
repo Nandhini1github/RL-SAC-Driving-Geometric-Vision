@@ -11,7 +11,8 @@ import carla
 import cv2
 import numpy as np
 import torch
-from stable_baselines3 import SAC
+from td3_training.td3_camera import MedianActor, OUT as WEIGHTS, SEEDS
+from hashlib import sha256
 
 from geometric_vision.rig import Rectifier, obstacle
 from geometric_vision.lane import LaneCamera
@@ -20,8 +21,8 @@ from geometric_vision.stereo import estimate, make_matcher
 from safety.brake import needs_brake
 
 W, H, BASELINE = 960, 540, 0.32
-OUT = Path("results/carla_sensor")
-RAW = Path(".runtime/sensor_capture")
+OUT = Path("results/carla_td3")
+RAW = Path(".runtime/td3_capture")
 
 
 def dot(a,b):
@@ -37,7 +38,7 @@ def raw(image):
     return np.frombuffer(image.raw_data,np.uint8).reshape(H,W,4)
 
 
-def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, capture=RAW):
+def run(port, frames, output=OUT, capture=RAW):
     cv2.setNumThreads(2)
     torch.set_num_threads(1)
     c=carla.Client("127.0.0.1",port)
@@ -60,7 +61,8 @@ def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, 
     matcher=make_matcher()
     lanes=LaneCamera(rect.k, BASELINE)
     speedometer=GroundOdometry(rect.k)
-    model=SAC.load(checkpoint,device="cpu")
+    model=MedianActor("final")
+    weights = {str(seed): sha256((WEIGHTS/str(seed)/"final.pt").read_bytes()).hexdigest() for seed in SEEDS}
     world.apply_settings(settings)
     try:
         def vehicle(start):
@@ -111,6 +113,7 @@ def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, 
             bearing=-atan2(found[0]-BASELINE/2,found[1]+1.6) if found else 0.0
             cov=float(np.isfinite(depth).mean())
             err,heading,lat=(np.nan,np.nan,[np.nan]*3) if lane is None else lane.tracking_features()
+            inference_ms = None
             if missing:
                 action=np.array([0.,-1.])
                 brake=True
@@ -118,7 +121,9 @@ def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, 
                 obs=np.clip([speed/10,err/3,sin(heading),lat[0]/5,lat[1]/8,lat[2]/12,
                              min((hypot(found[0]-BASELINE/2,found[1]+1.6) if found else 40)/40,1),
                              sin(bearing),float(bool(found)),*prev],-1,1).astype(np.float32)
+                inference_start = perf_counter()
                 action=model.predict(obs,deterministic=True)[0]
+                inference_ms = (perf_counter() - inference_start) * 1000
                 brake=needs_brake(speed,z,cov,tick-imgs[0].frame) or hold
             # Terminal stop task with a stationary obstacle. Hold once nearly stopped.
             hold=hold or (not missing and brake and speed<1.0 and z is not None and z<5)
@@ -142,7 +147,8 @@ def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, 
             target=parked.bounding_box.get_world_vertices(parked.get_transform())
             cam=imgs[0].transform
             truth=min(dot(vertex-cam.location,cam.get_forward_vector()) for vertex in target)
-            row=dict(frame=imgs[0].frame,step=step-8,speed_mps=speed,steer=steer,requested_long=float(action[1]),
+            row=dict(frame=imgs[0].frame,step=step-8,speed_mps=speed,steer=steer,requested_long=None if missing else float(action[1]),
+                     requested_steer=None if missing else float(action[0]),policy_ms=inference_ms,
                      brake=pedal,throttle=throttle,override=int(brake),collision=int(bool(collisions)),tracking_m=ref_err,
                      lane_offset_m=err,lane_heading_rad=heading,lane_markings=lane.markings if lane else 0,
                      speed_ref_mps=ego.get_velocity().length(),sensor_missing=int(missing),
@@ -172,7 +178,7 @@ def run(port, frames, checkpoint=Path("results/control/fixed.zip"), output=OUT, 
             writer.writeheader()
             writer.writerows(rows)
         (output/"run.json").write_text(json.dumps(dict(server=c.get_server_version(),map=road.name,
-            checkpoint=checkpoint.as_posix(),observation_source="stereo RGB and ground-plane visual odometry",width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
+            controller="median TD3 ensemble",checkpoint_sha256=weights,observation_source="stereo RGB and ground-plane visual odometry",width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
             collisions=len(collisions),ego_spawn_xy_yaw=list(EGO_START),parked_spawn_xy_yaw=list(PARKED_START),
             end_reason="stopped under override" if braking_frames>=12 else "frame budget"),indent=2))
         print((output/"run.json").read_text())
@@ -187,8 +193,7 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--port",type=int,default=2540)
     parser.add_argument("--frames",type=int,default=130)
-    parser.add_argument("--checkpoint", type=Path, default=Path("results/control/fixed.zip"))
     parser.add_argument("--output", type=Path, default=OUT)
     parser.add_argument("--capture", type=Path, default=RAW)
     args=parser.parse_args()
-    run(args.port,args.frames,args.checkpoint,args.output,args.capture)
+    run(args.port,args.frames,args.output,args.capture)

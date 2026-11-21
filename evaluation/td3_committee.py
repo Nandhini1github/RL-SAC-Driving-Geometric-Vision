@@ -7,9 +7,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from sac_training.experiment import save_csv
-from sac_training.residual import rollouts
-from sac_training.td3_camera import SEEDS, SETTINGS, load_actor
+from td3_training.routes import rollouts, save_csv
+from td3_training.td3_camera import MedianActor, SEEDS, SETTINGS, load_actor
 
 
 OUT = Path("results/td3/committee")
@@ -20,15 +19,6 @@ PRIMARY = ("pursuit", "imitation_median")
 TAIL_PROBABILITY = .025 / 3
 
 
-class MedianActor:
-    def __init__(self, branch):
-        self.actors = [load_actor(branch, seed) for seed in SEEDS]
-
-    def predict(self, obs, deterministic=True):
-        actions = [actor.predict(obs)[0] for actor in self.actors]
-        return np.median(actions, axis=0).astype(np.float32), None
-
-
 def evaluate(arm):
     model = None
     if arm == "td3_median":
@@ -37,7 +27,7 @@ def evaluate(arm):
         model = MedianActor("clone")
     elif arm.startswith("td3_"):
         model = load_actor("final", int(arm.split("_")[-1]))
-    rows = rollouts(SETTINGS, TEST, model, reference=True, standalone=model is not None)
+    rows = rollouts(SETTINGS, TEST, model, reference=True)
     OUT.mkdir(parents=True, exist_ok=True)
     save_csv(OUT/f"{arm}.csv", rows)
     print(arm, sum(r["success"] for r in rows), len(rows), flush=True)

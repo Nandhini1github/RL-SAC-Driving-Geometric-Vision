@@ -13,9 +13,9 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-CARLA=Path("results/carla_sensor")
+CARLA=Path("results/carla_td3")
 MEDIA=CARLA/"media"
-CAPTURE=Path(".runtime/sensor_capture")
+CAPTURE=Path(".runtime/td3_capture")
 INK=(244,242,235)
 MUTED=(189,178,162)
 TEAL=(194,208,92)
@@ -57,7 +57,8 @@ def main():
                  tracking_rmse_m=float(np.sqrt(np.mean(df.tracking_m**2))),shield_frames=int(df.override.sum()),
                  final_box_range_m=truth[-1],peak_speed_mps=float(np.nanmax(speed)))
     if "speed_ref_mps" in df:
-        summary.update(speed_rmse_mps=float(np.sqrt(np.mean((df.speed_mps-df.speed_ref_mps)**2))),
+        summary.update(policy_median_ms=float(df.policy_ms.median()),policy_p95_ms=float(df.policy_ms.quantile(.95)),
+                       policy_frames=int(df.policy_ms.count()),speed_rmse_mps=float(np.sqrt(np.mean((df.speed_mps-df.speed_ref_mps)**2))),
                        lane_offset_rmse_m=float(np.sqrt(np.mean((df.lane_offset_m-df.tracking_m)**2))),
                        missing_input_frames=int(df.sensor_missing.sum()))
     (CARLA/"metrics.json").write_text(json.dumps(summary,indent=2))
@@ -84,7 +85,7 @@ def main():
     with subprocess.Popen(cmd,stdin=subprocess.PIPE) as process:
         for i,row in df.iterrows():
             img=np.full((1080,1920,3),(33,28,22),np.uint8)
-            label(img,"Stereo guided braking in CARLA",32,87,1.65)
+            label(img,"TD3 stereo guided braking in CARLA",32,87,1.65)
             label(img,f"{t[i]:.1f} s",1680,87,1.65,TEAL)
             img[139:679,:960]=cv2.imread(str(CAPTURE/f"rgb_{i:03}.jpg"))
             img[139:679,960:]=cv2.imread(str(CAPTURE/f"depth_{i:03}.jpg"))
@@ -102,7 +103,7 @@ def main():
             speed_text = f"Visual speed   {speed[i]:.1f} m/s" if np.isfinite(speed[i]) else "Visual speed unavailable"
             label(img,speed_text,50,805,1.12)
             label(img,f"Range   {ranges[i]:.1f} m",1000,805,1.12)
-            label(img,"BRAKE OVERRIDE" if row.override else "SAC CONTROL",570,804,.83,AMBER if row.override else TEAL)
+            label(img,"BRAKE OVERRIDE" if row.override else "TD3 CONTROL",570,804,.83,AMBER if row.override else TEAL)
             label(img,"Stereo",1530,805,.82,TEAL)
             label(img,"Box reference",1660,805,.82,AMBER)
             trace(img,88,845,792,130,[speed],10,[TEAL],i)
@@ -125,7 +126,6 @@ def main():
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument("--sensor-run",action="store_true")
     parser.add_argument("--run-dir",type=Path,default=CARLA)
     parser.add_argument("--capture-dir",type=Path,default=CAPTURE)
     args=parser.parse_args()

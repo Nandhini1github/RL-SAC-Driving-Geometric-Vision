@@ -30,11 +30,8 @@ def check_hidden_state(a, b):
 
 
 def main():
-    from sac_training.residual import DEFAULT, ResidualEnv
-
     check_hidden_state(RouteEnv(), RouteEnv())
-    check_hidden_state(ResidualEnv(DEFAULT), ResidualEnv(DEFAULT))
-    print("Passed: equal images and commands produced equal learning signals for standalone and residual SAC under different hidden states.")
+    print("Equal images and commands yielded equal learning signals under different hidden states.")
 
     env = RouteEnv()
     env.reset(seed=71, options={"scene": "obstacle"})

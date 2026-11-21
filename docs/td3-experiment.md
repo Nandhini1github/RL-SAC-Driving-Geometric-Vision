@@ -16,16 +16,15 @@ TD3 reached the finish 0.05 s later on average than the tuned teacher on their 8
 
 ![Paired completion differences on 300 fresh routes](../results/td3/confirmation/paired.png)
 
-[![Tuned pure pursuit, imitation and TD3 on the first obstacle route of the replication](../results/td3/controllers.gif)](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)
+[![Tuned pure pursuit, imitation and TD3 on the first obstacle route of the replication](../results/td3/controllers.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#td3)
 
-The replay uses route 31000 and training seed 37. The overhead path and running tracking error are drawn only for evaluation. [Watch the full-resolution replay](https://nandhini1github.github.io/RL-SAC-Driving-Geometric-Vision/#td3)
+The replay uses route 31000 and training seed 37. The overhead path and running tracking error are drawn only for evaluation. [Watch the full-resolution replay](https://nandhini1github.github.io/RL-TD3-Driving-Geometric-Vision/#td3)
 
 ## Initial study on 180 routes
 
 | Controller | Clean finishes | Recorded contacts | Mean episode lateral RMSE |
 |---|---:|---:|---:|
 | Tuned pure pursuit | 175/180 (97.2%) | 0 | 0.176 m |
-| Previously trained residual SAC | 512/540 (94.8%) | 0 | 0.220 m |
 | Continued imitation only | 524/540 (97.0%) | 0 | 0.178 m |
 | Validation-selected TD3 branch, all three selected the imitation warm start | 517/540 (95.7%) | 0 | 0.178 m |
 | Final TD3 actors after RL updates | 537/540 (99.4%) | 0 | 0.220 m |
@@ -47,7 +46,7 @@ The task is the existing 40 m camera-based Gymnasium route. The primary outcome 
 * Use seeds 37, 83 and 109, and share the training dataset. Choose from the warm-start actor and four subsequent checkpoints per branch using 30 camera-scored validation cases on seeds 6700–6709. Rank by visual completions, then fewer visual hazards, then lower visual lane RMSE. Keep the earlier checkpoint in a tie. Log whether the warm-start policy won.
 * Freeze all selected weights before evaluating seeds 22000–22059 in each of three scenes (180 new routes). Compare on matched scene and seed and include all runs. Resample route seeds in blocks that retain all three scenes, and resample the three training seeds. The geometric teacher is scored once on the 180 routes.
 
-Two secondary comparisons use the same routes: the previous study's frozen residual SAC and the final TD3 checkpoint after all 3,200 RL actor updates. The latter shows what a policy that definitely received RL updates did when validation favored a warm start. Residual SAC retains its two additional camera-validity flags. Both comparisons were specified before opening the held-out set. All arms use the same environment and final scoring criteria. The CARLA films illustrate the earlier SAC policies. [TD3 paper](https://proceedings.mlr.press/v80/fujimoto18a.html) · [TD3+BC paper](https://arxiv.org/abs/2106.06860)
+The separately reported final TD3 checkpoints received all 3,200 RL actor updates. This secondary comparison was specified before opening the held-out set. [TD3 paper](https://proceedings.mlr.press/v80/fujimoto18a.html) · [TD3+BC paper](https://arxiv.org/abs/2106.06860)
 
 ### Independent replication protocol
 
@@ -63,17 +62,17 @@ The reward credits visual progress and adds 25 for a visual finish. It charges 0
 
 ```powershell
 $py = ".\.venv\Scripts\python.exe"
-& $py -m sac_training.td3_camera collect
-foreach ($seed in 37,83,109) { & $py -m sac_training.td3_camera train --seed $seed }
-& $py -m sac_training.td3_camera test --arm pursuit
+& $py -m td3_training.td3_camera collect
+foreach ($seed in 37,83,109) { & $py -m td3_training.td3_camera train --seed $seed }
+& $py -m td3_training.td3_camera test --arm pursuit
 foreach ($seed in 37,83,109) {
-    foreach ($arm in 'td3','clone','residual','final') { & $py -m sac_training.td3_camera test --arm $arm --seed $seed }
+    foreach ($arm in 'td3','clone','final') { & $py -m td3_training.td3_camera test --arm $arm --seed $seed }
 }
 & $py -m evaluation.td3_results
-& $py -m sac_training.td3_camera test --confirm --arm pursuit
+& $py -m td3_training.td3_camera test --confirm --arm pursuit
 foreach ($seed in 37,83,109) {
-    foreach ($arm in 'final','clone') { & $py -m sac_training.td3_camera test --confirm --arm $arm --seed $seed }
+    foreach ($arm in 'final','clone') { & $py -m td3_training.td3_camera test --confirm --arm $arm --seed $seed }
 }
 & $py -m evaluation.td3_results --confirm
-& $py -m evaluation.rl_video --compare-td3
+& $py -m evaluation.rl_video
 ```
