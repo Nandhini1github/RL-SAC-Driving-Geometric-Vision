@@ -80,6 +80,22 @@ Across the three seeds, SAC completed 21 more trials with fixed training than wi
 
 ![Training returns, validation completion and held-out tracking for seed 37](results/media/control.png)
 
+### Why did some routes go unfinished?
+
+The most common reason was loss of the camera speed estimate. The simulator ends an episode after three consecutive frames without usable speed or lane measurements. In **96 of 124 unsuccessful trials**, the lane was still visible on all three frames, but the visual odometry could not measure speed. The vehicle can still be moving when its episode ends. The reference evaluator checks whether the car reached 39 m on the 40 m route without a contact or a lane departure.
+
+| Reason the trial did not count as a completion | Pure pursuit | Fixed SAC | Adaptive SAC |
+|---|---:|---:|---:|
+| Speed estimate unavailable for three frames while lane remained visible | 15 | 29 | 52 |
+| Both speed and lane estimates had gaps across three frames | 0 | 0 | 2 |
+| Estimated lane offset exceeded the 2.6 m limit | 0 | 12 | 5 |
+| Camera estimated 40 m of travel before the car reached the finish threshold | 0 | 2 | 4 |
+| Episode reached its 16 s time limit | 0 | 0 | 2 |
+| Car reached the finish after a recorded obstacle contact | 0 | 1 | 0 |
+| **Total unsuccessful trials** | **15** | **44** | **65** |
+
+All 17 visual lane-offset warnings occurred on obstacle bypasses. The independent evaluator recorded zero true lane departures in those runs. These counts identify the first condition that ended a run or the contact that disqualified a finish. Determining why image motion became unreliable on each frame would require a separate test of the speed estimator. [Replayed episodes and end signals](results/unfinished_routes.csv)
+
 ### How closely does each controller follow the lane?
 
 The replay shows **inference**. At each step, each saved SAC policy turns camera-derived lane, speed and obstacle measurements into steering and acceleration. The policy weights stay fixed. Pure pursuit uses the same measurements to steer toward a point on the lane. The overhead view and tracking error come from the evaluator after each action.
@@ -186,6 +202,7 @@ foreach ($trial in 37,83,109) { & $python -m sac_training.experiment --seed $tri
 & $python -m evaluation.across_seeds
 & $python -m evaluation.rl_video
 & $python -m evaluation.inference_latency
+& $python -m evaluation.unfinished_routes
 ```
 
 Each training directory contains episode logs, validations, final tests, decisions and checkpoints. Training recreates the local common replay buffer. For the optional local LLM experiment, run a local Ollama server with `qwen2.5:7b` installed, then run `& $python -m agentic_supervisor.local_llm` after training seed 37. The decision log identifies the source if the model is unavailable and the deterministic selector takes over.

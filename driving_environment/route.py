@@ -45,7 +45,9 @@ class RouteEnv(gym.Env):
 
     def observe(self,left,right):
         speed,lane,point=self.vision.measure(left,right,self.steps*.1)
-        self.readable = speed is not None and lane is not None
+        self.speed_available = speed is not None
+        self.lane_available = lane is not None
+        self.readable = self.speed_available and self.lane_available
         self.invalid = 0 if self.readable else self.invalid+1
         self.measured_speed = 0. if speed is None else min(speed,12.)
         self.error,heading,look = lane if lane is not None else (3.,0.,[0.,0.,0.])
