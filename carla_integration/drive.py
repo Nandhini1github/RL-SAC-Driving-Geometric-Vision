@@ -40,7 +40,7 @@ def raw(image):
     return np.frombuffer(image.raw_data,np.uint8).reshape(H,W,4)
 
 
-def run(port, frames, output=OUT, capture=RAW, scene="stop"):
+def run(port, frames, output=OUT, capture=RAW, scene="stop", save_stereo=False):
     cv2.setNumThreads(2)
     torch.set_num_threads(1)
     c=carla.Client("127.0.0.1",port)
@@ -113,6 +113,11 @@ def run(port, frames, output=OUT, capture=RAW, scene="stop"):
             if step<8:
                 queues[2].get(timeout=20)
                 continue
+            if save_stereo:
+                # Store exactly the two rectified uint8 images consumed by the matcher.
+                pair = np.hstack((left, right))
+                if not cv2.imwrite(str(capture/f"pair_{imgs[0].frame}.png"), pair):
+                    raise OSError("Failed to save the synchronized stereo pair")
             depth=estimate(left,right,matcher,rect.k[0,0],rect.baseline)
             found=obstacle(depth,rect.k)
             lane=lanes.estimate(left)
@@ -201,6 +206,7 @@ def run(port, frames, output=OUT, capture=RAW, scene="stop"):
         (output/"run.json").write_text(json.dumps(dict(server=c.get_server_version(),map=road.name,
             controller="TD3",lane_history_lookahead_m=3.5,checkpoint_sha256=weights,observation_source="stereo RGB and ground-plane visual odometry",width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
             collisions=len(collisions),scene=scene,ego_spawn_xy_yaw=list(ego_start),
+            **({"rectified_fx_px":float(rect.k[0,0]), "saved_rectified_pairs":True} if save_stereo else {}),
             **({"reference_road":1,"reference_lane":bend.lane_id} if bend else {"parked_spawn_xy_yaw":list(PARKED_START)}),
             end_reason="stopped under override" if braking_frames>=12 else "frame budget"),indent=2))
         print((output/"run.json").read_text())
@@ -218,9 +224,10 @@ if __name__=="__main__":
     parser.add_argument("--scene",choices=("stop","left","right"),default="stop")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--capture", type=Path)
+    parser.add_argument("--save-stereo", action="store_true", help="Save lossless rectified pairs keyed by sensor frame")
     args=parser.parse_args()
     bend = args.scene != "stop"
     frames = args.frames or (200 if bend else 130)
     output = args.output or (Path("results/carla_bends")/args.scene if bend else OUT)
     capture = args.capture or (Path(".runtime/bends")/args.scene if bend else RAW)
-    run(args.port,frames,output,capture,args.scene)
+    run(args.port,frames,output,capture,args.scene,args.save_stereo)

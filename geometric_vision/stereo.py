@@ -12,8 +12,8 @@ def make_matcher():
     )
 
 
-def estimate(left, right, matcher, focal_px, baseline_m):
-    """Accept rectified uint8 grayscale images with identical intrinsics."""
+def estimate_with_disparity(left, right, matcher, focal_px, baseline_m):
+    """Return pixel disparity and optical depth from rectified uint8 grayscale images."""
     if left.ndim != 2 or left.shape != right.shape or left.dtype != np.uint8 or right.dtype != np.uint8:
         raise ValueError("Expected two equal-size uint8 grayscale images")
     if not all(np.isfinite(v) and v > 0 for v in (focal_px, baseline_m)):
@@ -21,7 +21,11 @@ def estimate(left, right, matcher, focal_px, baseline_m):
     disparity = matcher.compute(left, right).astype(np.float32) / 16.0
     depth = np.full_like(disparity, np.nan)
     np.divide(focal_px * baseline_m, disparity, out=depth, where=disparity > 0)
-    return depth
+    return disparity, depth
+
+
+def estimate(left, right, matcher, focal_px, baseline_m):
+    return estimate_with_disparity(left, right, matcher, focal_px, baseline_m)[1]
 
 
 def unproject(u, v, z, fx, fy, cx, cy):

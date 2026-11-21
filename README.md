@@ -12,6 +12,18 @@ The cyan line follows the center of the lane fitted from visible paint in the le
 
 ### TD3 on left and right bends
 
+#### Geometric vision on the bends
+
+[![Geometric vision video showing both rectified camera images, SGBM disparity and stereo depth during left and right bends](results/bend_stereo/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bend-stereo)
+
+[▶ Watch geometric vision on both bends in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bend-stereo) · [Open the stereo MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/bend_stereo/media/stereo-geometry.mp4)
+
+The top panels are the exact grayscale images used for stereo matching. The cyan curve follows the lane estimated from the left camera. Yellow crosses mark a sample correspondence on the same row of both images. Their horizontal separation is disparity in source pixels. Below, brighter disparity indicates a larger shift. The depth panel shows nearby surfaces in warm colors and distant surfaces in cool colors, with black where matching failed. The readout converts the highlighted disparity to metres using `Z = fB/d`.
+
+These are two fresh TD3 passes with lossless stereo recording enabled. Each replayed frame is checked against the valid-depth fraction and obstacle range logged during that pass. [Left-pass telemetry](results/bend_stereo/left/frames.csv) · [Right-pass telemetry](results/bend_stereo/right/frames.csv)
+
+#### Driving replay
+
 [![TD3 on a left bend and a right bend in CARLA, with chase and front-camera views](results/carla_bends/media/preview.gif)](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends)
 
 [▶ Play the 40-second bend video in 1080p](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#bends) · [Open the MP4](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/results/carla_bends/media/td3-bends.mp4)
@@ -109,9 +121,10 @@ To reproduce the two bend recordings on the same dedicated server, run the passe
 
 ```powershell
 foreach ($turn in 'left','right') {
-    & $py -m carla_integration.drive --port 2540 --scene $turn --output ".runtime/bend-repeat/$turn" --capture ".runtime/bend-images/$turn"
+    & $py -m carla_integration.drive --port 2540 --scene $turn --save-stereo --output ".runtime/bend-repeat/$turn" --capture ".runtime/bend-images/$turn"
 }
 & $py -m evaluation.bend_video --run-dir .runtime/bend-repeat --capture-dir .runtime/bend-images
+& $py -m evaluation.bend_stereo_video --run-dir .runtime/bend-repeat --capture-dir .runtime/bend-images
 ```
 
 [Train TD3 from the demonstration dataset](docs/td3-experiment.md) · [Reproduce the paired evaluation](docs/td3-committee.md) · [Technical report](docs/technical-report.md)
