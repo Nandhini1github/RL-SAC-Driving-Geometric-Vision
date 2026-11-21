@@ -13,9 +13,9 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-MEDIA=Path("results/media")
-CAPTURE=Path(".runtime/capture")
-CARLA=Path("results/carla")
+CARLA=Path("results/carla_sensor")
+MEDIA=CARLA/"media"
+CAPTURE=Path(".runtime/sensor_capture")
 INK=(244,242,235)
 MUTED=(189,178,162)
 TEAL=(194,208,92)
@@ -125,8 +125,5 @@ def main():
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--sensor-run",action="store_true")
-    if parser.parse_args().sensor_run:
-        CARLA=Path("results/carla_sensor")
-        MEDIA=CARLA/"media"
-        CAPTURE=Path(".runtime/sensor_capture")
+    parser.parse_args()
     main()

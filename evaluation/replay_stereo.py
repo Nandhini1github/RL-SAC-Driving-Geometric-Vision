@@ -8,7 +8,7 @@ from geometric_vision.stereo import estimate, make_matcher
 
 
 def main():
-    root = Path("results/carla")
+    root = Path("results/carla_sensor")
     meta = json.loads((root/"run.json").read_text())
     w,h = meta["width"], meta["height"]
     f = w/(2*np.tan(np.deg2rad(meta["hfov_deg"]/2)))

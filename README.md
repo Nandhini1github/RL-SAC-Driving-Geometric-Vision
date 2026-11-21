@@ -12,16 +12,16 @@ The CARLA film displays both 960 × 540 sensor panels at native resolution. Its 
 
 A Tesla Model 3 approached a parked vehicle using **camera-derived lane guidance, stereo obstacle range and GNSS-estimated speed**. The map placed the two cars at the start. During driving, the policy received local lane offsets at 3, 6 and 10 m from the camera fit. It also received obstacle range and bearing from stereo, speed from timestamped GNSS fixes, and its previous applied command. Simulator pose, velocity, depth and actor geometry were reserved for evaluation during the run.
 
-| Same seed-37 SAC checkpoint and straight approach | Earlier map-assisted run | Sensor-driven run |
-|---|---:|---:|
-| Control frames | 72 | 77 |
-| Recorded collisions | 0 | 0 |
-| Final camera-to-box clearance | 3.16 m | 3.06 m |
-| Frames with brake override | 33 | 36 |
-| Lateral tracking RMSE against map centerline | 0.162 m | 0.210 m |
-| Stereo obstacle range MAE | 0.44 m | 0.56 m |
+| Metric | Sensor-driven approach (SAC seed 37) |
+|---|---:|
+| Control frames | 77 |
+| Recorded collisions | 0 |
+| Final camera-to-box clearance | 3.06 m |
+| Frames with brake override | 36 |
+| Lateral tracking RMSE against the evaluation centerline | 0.210 m |
+| Stereo obstacle range MAE | 0.56 m |
 
-The sensor-driven run produced a lane fit and speed estimate on all 77 frames. **Lane-offset estimation RMSE was 0.147 m** against the map and **speed estimation RMSE was 0.494 m/s** against the actor velocity. These measure the estimators. The 0.210 m tracking RMSE measures how accurately the vehicle actually followed the lane. At the final stop the policy still requested positive acceleration, so the deterministic brake deserves credit for stopping the vehicle. Each column represents one run.
+The sensor-driven run produced a lane fit and speed estimate on all 77 frames. **Lane-offset estimation RMSE was 0.147 m** against the map and **speed estimation RMSE was 0.494 m/s** against the actor velocity. These measure the estimators. The 0.210 m tracking RMSE measures how accurately the vehicle actually followed the lane. At the final stop the policy still requested positive acceleration, so the deterministic brake deserves credit for stopping the vehicle.
 
 | Sensor-driven run: reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
 |---|---:|---:|---:|
@@ -31,7 +31,7 @@ The sensor-driven run produced a lane fit and speed estimate on all 77 frames. *
 
 ![Sensor-driven range, override timing and depth errors](results/carla_sensor/media/carla.png)
 
-Median image processing time was 158 ms per synchronized frame. A coherent obstacle surface remained easier to locate than individual distant pixels. The test used a level straight street with visible paint, one parked obstacle and a fixed simulation step. [Sensor-run measurements](results/carla_sensor/frames.csv) / [Sensor-run metrics](results/carla_sensor/metrics.json) / [Earlier map-assisted run](results/carla/run.json)
+Median image processing time was 158 ms per synchronized frame. A coherent obstacle surface remained easier to locate than individual distant pixels. The test used a level straight street with visible paint, one parked obstacle and a fixed simulation step. [Sensor-run measurements](results/carla_sensor/frames.csv) / [Sensor-run metrics](results/carla_sensor/metrics.json)
 
 Two independent checks isolate calibration and matching. Fitting a nonparallel synthetic rig from noisy board corners yielded **0.278 px** held-out 95th-percentile vertical rectification error. On ideal textured planes the depth MAE grew from **0.056 m at 4 m** to **0.772 m at 16 m**. [Calibration results](results/calibration.json) · [Synthetic depth plot](results/media/stereo.png)
 
