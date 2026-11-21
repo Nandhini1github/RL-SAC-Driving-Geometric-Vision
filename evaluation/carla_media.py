@@ -15,7 +15,7 @@ from PIL import Image
 
 CARLA=Path("results/carla_td3")
 MEDIA=CARLA/"media"
-CAPTURE=Path(".runtime/td3_capture")
+CAPTURE=Path(".runtime/history-capture")
 INK=(244,242,235)
 MUTED=(189,178,162)
 TEAL=(194,208,92)

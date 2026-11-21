@@ -23,7 +23,7 @@
     <h1>Camera-only driving demos</h1>
     <nav aria-label="Recordings and project">
       <a href="#carla">TD3 stereo drive in CARLA</a>
-      <a href="#td3">TD3 and imitation in Gymnasium</a>
+      <a href="#td3">TD3 and Pure pursuit in Gymnasium</a>
       <a href="https://github.com/Nandhini1github/RL-TD3-Driving-Geometric-Vision#readme">Results and methods ↗</a>
     </nav>
     <section id="carla">
@@ -32,9 +32,9 @@
       <p>The cyan centerline comes from camera-detected lane markings. Stereo estimates the range to the parked vehicle. Watch the control indicator switch from TD3 to the deterministic brake override as the car approaches. The orange range trace is the independent reference used for evaluation.</p>
     </section>
     <section id="td3">
-      <h2>From driving demonstrations to TD3</h2>
-      <video aria-label="Pure pursuit, imitation only, and final TD3 on replication route 31000" src="results/td3/controllers.mp4" autoplay muted playsinline loop controls></video>
-      <p>The two neural policies both learned from the geometric controller's demonstrations. The third row also received reward-based TD3 updates. Both networks issue steering and acceleration directly. This is the first obstacle route of the independent Gymnasium replication, using training seed 37.</p>
+      <h2>TD3 and Pure pursuit on the same obstacle bypass</h2>
+      <video aria-label="TD3 and Pure pursuit on obstacle route 61000" src="results/tracking/controllers.mp4" autoplay muted playsinline loop controls></video>
+      <p>Both controllers use the same camera-based lane history. The replay shows the first obstacle route from the 600-route benchmark. The overhead paths and error readings are evaluation overlays.</p>
     </section>
   </main>
 </body>

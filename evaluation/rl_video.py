@@ -1,4 +1,4 @@
-"""Render a held-out bicycle-model rollout with metric axes and frozen TD3 and imitation policies."""
+"""Render a held-out bicycle-model rollout with metric axes for TD3 and Pure pursuit."""
 import argparse
 import subprocess
 import cv2
@@ -12,18 +12,17 @@ from evaluation.carla_media import label, INK, MUTED, TEAL, AMBER
 
 def main(seed):
     torch.set_num_threads(1)
-    from td3_training.td3_camera import OUT as output, SETTINGS, base_command, load_actor
-    models = [None, load_actor("clone",37), load_actor("final",37)]
-    names = ("Tuned pure pursuit", "Imitation only", "TD3 after imitation")
-    baseline = lambda obs: base_command(obs, SETTINGS)
-    title = "From driving demonstrations to TD3"
+    from td3_training.tracking import OUT as output, TD3, PurePursuit
+    models = [TD3(), PurePursuit()]
+    names = ("TD3", "Pure pursuit")
+    title = "Following a camera-detected lane"
     envs=[RouteEnv() for _ in models]
     obs=[env.reset(seed=seed,options={"scene":"obstacle"})[0] for env in envs]
     tracks=[[] for _ in models]
-    states=["tracking"]*3
-    squared_errors = [0.0] * 3
-    reached_finish = [False] * 3
-    failed_reference = [False] * 3
+    states=["tracking"]*len(models)
+    squared_errors = [0.0] * len(models)
+    reached_finish = [False] * len(models)
+    failed_reference = [False] * len(models)
     ff=imageio_ffmpeg.get_ffmpeg_exe()
     cmd=[ff,"-y","-loglevel","error","-f","rawvideo","-pix_fmt","bgr24","-s","1600x900","-r","10","-i","-",
          "-an","-c:v","libx264","-crf","17","-pix_fmt","yuv420p","-movflags","+faststart",str(output/"controllers.mp4")]
@@ -32,10 +31,10 @@ def main(seed):
         for tick in range(162):
             img=np.full((900,1600,3),(33,28,22),np.uint8)
             label(img,title,40,68,1.55)
-            label(img,f"Gymnasium obstacle bypass   |   Held-out route {seed}   |   Training seed 37",42,114,.88,MUTED)
+            label(img,f"Gymnasium obstacle bypass   |   Held-out route {seed}",42,114,.88,MUTED)
             label(img,f"{tick/10:.1f} s",1390,80,1.5,TEAL)
             for j,(model,env,name) in enumerate(zip(models,envs,names)):
-                top=150+230*j
+                top=190+325*j
                 def point(x,y): return (round(420+23*x), round(top+120-23*y))
                 cv2.line(img,(40,top),(1560,top),(81,69,56),1)
                 label(img,name,45,top+42,1.02)
@@ -60,7 +59,7 @@ def main(seed):
             if all(state!="tracking" for state in states): break
             for j,(model,env) in enumerate(zip(models,envs)):
                 if states[j]!="tracking": continue
-                a=baseline(obs[j]) if model is None else model.predict(obs[j],deterministic=True)[0]
+                a=model.predict(obs[j])
                 obs[j],_,term,trunc,info=env.step(a)
                 # These measurements score the replay after the actor has taken its step.
                 lateral_error, contact, reached = env.reference_metrics()
@@ -90,6 +89,6 @@ def main(seed):
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument("--seed",type=int,default=31000,help="Held-out obstacle route to replay")
+    parser.add_argument("--seed",type=int,default=61000,help="Held-out obstacle route to replay")
     args=parser.parse_args()
     main(args.seed)

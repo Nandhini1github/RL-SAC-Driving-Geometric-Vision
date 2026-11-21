@@ -1,0 +1,37 @@
+{
+  "controllers": {
+    "TD3": {
+      "routes": 600,
+      "finishes": 598,
+      "contacts": 0,
+      "lateral_rmse_m": 0.14612104833360326
+    },
+    "Pure pursuit": {
+      "routes": 600,
+      "finishes": 594,
+      "contacts": 0,
+      "lateral_rmse_m": 0.14782483064122212
+    }
+  },
+  "paired": {
+    "joint_finishes": 594,
+    "joint_lateral_rmse_m": {
+      "TD3": 0.14639308275827834,
+      "Pure pursuit": 0.14800319641321594
+    },
+    "success": {
+      "td3_minus_pure_pursuit": 0.006666666666666666,
+      "adjusted_interval": [
+        0.0,
+        0.015
+      ]
+    },
+    "rmse_m": {
+      "td3_minus_pure_pursuit": -0.001703782307618887,
+      "adjusted_interval": [
+        -0.0021179963413691244,
+        -0.0012915660012213107
+      ]
+    }
+  }
+}

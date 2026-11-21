@@ -1,0 +1,25 @@
+{
+  "selected": "history35",
+  "validation": {
+    "penalty": {
+      "finishes": 95,
+      "contacts": 0,
+      "rmse_m": 0.27124475639804335
+    },
+    "history35": {
+      "finishes": 96,
+      "contacts": 0,
+      "rmse_m": 0.23567609315072333
+    },
+    "history40": {
+      "finishes": 96,
+      "contacts": 0,
+      "rmse_m": 0.2508289570612629
+    }
+  },
+  "hashes": {
+    "37": "98d4b54caf675df39def71a5d6553307f9ea452c42545930bcc5e354619234d2",
+    "83": "2a531deb0f1cb6e4d4627dcb77b7d63938c27c6f44ed296b800173fe61d193c5",
+    "109": "f35f615aabe3f0807fd50eba8954176130a9a692403d1b747361251106e3a6c0"
+  }
+}

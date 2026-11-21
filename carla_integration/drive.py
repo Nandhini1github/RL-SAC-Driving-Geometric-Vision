@@ -11,7 +11,8 @@ import carla
 import cv2
 import numpy as np
 import torch
-from td3_training.td3_camera import MedianActor, OUT as WEIGHTS, SEEDS
+from td3_training.td3_camera import OUT as WEIGHTS, SEEDS
+from td3_training.tracking import TD3, OUT as TRACKING
 from hashlib import sha256
 
 from geometric_vision.rig import Rectifier, obstacle
@@ -22,7 +23,7 @@ from safety.brake import needs_brake
 
 W, H, BASELINE = 960, 540, 0.32
 OUT = Path("results/carla_td3")
-RAW = Path(".runtime/td3_capture")
+RAW = Path(".runtime/history-capture")
 
 
 def dot(a,b):
@@ -61,8 +62,9 @@ def run(port, frames, output=OUT, capture=RAW):
     matcher=make_matcher()
     lanes=LaneCamera(rect.k, BASELINE)
     speedometer=GroundOdometry(rect.k)
-    model=MedianActor("final")
-    weights = {str(seed): sha256((WEIGHTS/str(seed)/"final.pt").read_bytes()).hexdigest() for seed in SEEDS}
+    model = TD3()
+    weights = {path.as_posix(): sha256(path.read_bytes()).hexdigest() for seed in SEEDS
+               for path in (WEIGHTS/str(seed)/"final.pt", TRACKING/f"steering-{seed}.pt")}
     world.apply_settings(settings)
     try:
         def vehicle(start):
@@ -115,6 +117,7 @@ def run(port, frames, output=OUT, capture=RAW):
             err,heading,lat=(np.nan,np.nan,[np.nan]*3) if lane is None else lane.tracking_features()
             inference_ms = None
             if missing:
+                model.reset()
                 action=np.array([0.,-1.])
                 brake=True
             else:
@@ -122,7 +125,7 @@ def run(port, frames, output=OUT, capture=RAW):
                              min((hypot(found[0]-BASELINE/2,found[1]+1.6) if found else 40)/40,1),
                              sin(bearing),float(bool(found)),*prev],-1,1).astype(np.float32)
                 inference_start = perf_counter()
-                action=model.predict(obs,deterministic=True)[0]
+                action=model.predict(obs)
                 inference_ms = (perf_counter() - inference_start) * 1000
                 brake=needs_brake(speed,z,cov,tick-imgs[0].frame) or hold
             # Terminal stop task with a stationary obstacle. Hold once nearly stopped.
@@ -153,7 +156,8 @@ def run(port, frames, output=OUT, capture=RAW):
                      lane_offset_m=err,lane_heading_rad=heading,lane_markings=lane.markings if lane else 0,
                      speed_ref_mps=ego.get_velocity().length(),sensor_missing=int(missing),
                      lane_left_3m=lat[0],lane_left_6m=lat[1],lane_left_10m=lat[2],
-                     range_est_m=z,parked_box_front_m=truth,coverage=cov,vision_ms=ms)
+                     range_est_m=z, policy_range_norm=None if missing else float(obs[6]),
+                     policy_bearing_sine=None if missing else float(obs[7]),parked_box_front_m=truth,coverage=cov,vision_ms=ms)
             for lo,hi in bins:
                 mask=(gt>=lo)&(gt<hi)
                 valid=mask&np.isfinite(depth)
@@ -178,7 +182,7 @@ def run(port, frames, output=OUT, capture=RAW):
             writer.writeheader()
             writer.writerows(rows)
         (output/"run.json").write_text(json.dumps(dict(server=c.get_server_version(),map=road.name,
-            controller="median TD3 ensemble",checkpoint_sha256=weights,observation_source="stereo RGB and ground-plane visual odometry",width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
+            controller="TD3",lane_history_lookahead_m=3.5,checkpoint_sha256=weights,observation_source="stereo RGB and ground-plane visual odometry",width=W,height=H,baseline_m=BASELINE,hfov_deg=80,dt_s=0.1,frames=len(rows),
             collisions=len(collisions),ego_spawn_xy_yaw=list(EGO_START),parked_spawn_xy_yaw=list(PARKED_START),
             end_reason="stopped under override" if braking_frames>=12 else "frame budget"),indent=2))
         print((output/"run.json").read_text())
