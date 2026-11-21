@@ -2,25 +2,36 @@
 
 **Can a stereo range estimate transfer into a learned driving controller, and does adaptive training improve that controller?** This project tests both questions with a Windows CARLA 1.0 stereo rig, a Gymnasium bicycle model, and Soft Actor-Critic (SAC). Three training seeds compare fixed and adaptive curricula. A separate experiment gives a local language model bounded authority over scenario sampling.
 
-[![CARLA stereo braking replay](results/media/carla-preview.gif)](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)
+https://github.com/user-attachments/assets/6b1a6bd9-b623-4bbb-9746-ca05c4c5ecbe
 
-**[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
+**[Watch the 1080p CARLA stereo and braking video](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/carla_sensor/media/carla-stereo-stop.mp4)** · **[Watch the 900p controller comparison](https://github.com/Nandhini1github/RL-SAC-Driving-Geometric-Vision/raw/refs/heads/main/results/media/controllers.mp4)** · [Technical report](docs/technical-report.md)
 
 The CARLA film displays both 960 × 540 sensor panels at native resolution. Its half-speed playback shows the speed response and exact brake-override frames. The second film replays three controllers on the same held-out Gymnasium route. All reference trajectories in these experiments are deterministic.
 
 ## Geometric vision on a live CARLA approach
 
-A Tesla Model 3 approached a stationary vehicle on Town10HD. The controller received speed, map-relative tracking features and a corridor obstacle estimate from the synchronized RGB stereo pair. The aligned depth camera and parked vehicle bounding box supplied evaluation references. The final run reached **9.48 m/s**, recorded **zero collisions** and stopped **3.16 m** from the parked box, measured forward from the left camera. The deterministic brake overrode SAC on **33 of 72 frames**. On the final frame SAC still requested **+0.91** normalized longitudinal command.
+A Tesla Model 3 approached a parked vehicle using **camera-derived lane guidance, stereo obstacle range and GNSS-estimated speed**. The map placed the two cars at the start. During driving, the policy received local lane offsets at 3, 6 and 10 m from the camera fit. It also received obstacle range and bearing from stereo, speed from timestamped GNSS fixes, and its previous applied command. Simulator pose, velocity, depth and actor geometry were reserved for evaluation during the run.
 
-| Reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
+| Same seed-37 SAC checkpoint and straight approach | Earlier map-assisted run | Sensor-driven run |
+|---|---:|---:|
+| Control frames | 72 | 77 |
+| Recorded collisions | 0 | 0 |
+| Final camera-to-box clearance | 3.16 m | 3.06 m |
+| Frames with brake override | 33 | 36 |
+| Lateral tracking RMSE against map centerline | 0.162 m | 0.210 m |
+| Stereo obstacle range MAE | 0.44 m | 0.56 m |
+
+The sensor-driven run produced a lane fit and speed estimate on all 77 frames. **Lane-offset estimation RMSE was 0.147 m** against the map and **speed estimation RMSE was 0.494 m/s** against the actor velocity. These measure the estimators. The 0.210 m tracking RMSE measures how accurately the vehicle actually followed the lane. At the final stop the policy still requested positive acceleration, so the deterministic brake deserves credit for stopping the vehicle. Each column represents one run.
+
+| Sensor-driven run: reference depth | Valid-pixel coverage | Depth MAE | Depth RMSE |
 |---|---:|---:|---:|
-| 3–8 m | 38.4% | 0.52 m | 7.84 m |
-| 8–16 m | 56.8% | 1.66 m | 8.04 m |
-| 16–30 m | 60.6% | 5.98 m | 21.91 m |
+| 3-8 m | 37.2% | 0.58 m | 8.28 m |
+| 8-16 m | 56.7% | 1.86 m | 8.75 m |
+| 16-30 m | 61.4% | 6.39 m | 23.19 m |
 
-![CARLA measured range, override timing and depth error](results/media/carla.png)
+![Sensor-driven range, override timing and depth errors](results/carla_sensor/media/carla.png)
 
-The stereo estimator returned a corridor surface in all 72 frames. Its forward range had **0.44 m MAE** and **0.63 m RMSE** against the parked box front. The dense depth map was less reliable, particularly at long range. Small disparity errors amplify with depth, and the gap between MAE and RMSE shows that some accepted correspondences were badly wrong. Median geometry processing latency was **186 ms** at 960 × 540. The run used synchronous stepping at 0.1 simulation seconds per frame. This single approach establishes a working integration with a brake override. [Frame-level measurements](results/carla/frames.csv) · [Metrics](results/carla/metrics.json) · [Replayable image pairs](results/carla)
+Median image processing time was 158 ms per synchronized frame. A coherent obstacle surface remained easier to locate than individual distant pixels. The test used a level straight street with visible paint, one parked obstacle and a fixed simulation step. [Sensor-run measurements](results/carla_sensor/frames.csv) / [Sensor-run metrics](results/carla_sensor/metrics.json) / [Earlier map-assisted run](results/carla/run.json)
 
 Two independent checks isolate calibration and matching. Fitting a nonparallel synthetic rig from noisy board corners yielded **0.278 px** held-out 95th-percentile vertical rectification error. On ideal textured planes the depth MAE grew from **0.056 m at 4 m** to **0.772 m at 16 m**. [Calibration results](results/calibration.json) · [Synthetic depth plot](results/media/stereo.png)
 
@@ -56,20 +67,25 @@ The LLM correctly identified bends as the highest-error scenario after the commo
 
 ### Where reinforcement learning happens
 
-**Training runs in Gymnasium.** At each step, the SAC actor chooses continuous steering and acceleration commands. The bicycle environment advances the vehicle, scores progress, tracking, smoothness and terminal outcomes, and returns the next observation. Stable-Baselines3 stores these transitions in a replay buffer and samples them to update the actor and twin critics. The fixed arm samples all three scenarios uniformly. In the adaptive arms, a rule or local LLM uses validation results to choose the next stage's scenario mix. [Environment](driving_environment/route.py) / [SAC training loop](sac_training/experiment.py)
+**How the car learns.** In Gymnasium, SAC steers and changes speed. After each move, the simulator shows what happened and gives it a score. Staying close to the path earns a better score. Collisions and leaving the lane hurt it. SAC saves those experiences, practices on a sample of them, and updates how it drives on the next attempt.
 
 ```mermaid
-flowchart TD
-    Actor[SAC actor] -->|Steering and acceleration| Env[Gymnasium bicycle environment]
-    Env -->|Next observation| Actor
-    Env -->|Transition including reward| Replay[Replay buffer]
-    Replay -->|Sampled batches| Learn[SAC actor and twin-critic updates]
-    Learn -->|Updated weights| Actor
-    Learn --> Save[Policy checkpoint]
-    Save --> Val[Evaluate on validation routes]
-    Val --> Sup[Adaptive arms only: rule or local LLM]
-    Sup -->|Scenario mix for next training stage| Env
+flowchart LR
+    A["Steer and change speed"] --> B["See what happened<br/>and get a score"]
+    B --> C["Save driving<br/>experiences"]
+    C --> D["Learn from past drives<br/>and try again"]
 ```
+
+**How practice is chosen.** Between training stages, we test the latest policy on the same validation routes. The fixed-training version keeps the same mix of routes. The adaptive version uses a rule or a local language model to choose which scenario to practice more often.
+
+```mermaid
+flowchart LR
+    A["Save the current<br/>driving policy"] --> B["Test it on straight roads,<br/>bends and obstacle routes"]
+    B --> C["Choose what to<br/>practice more"]
+    C --> D["Train for another<br/>4,096 driving steps"]
+```
+
+[Gymnasium environment](driving_environment/route.py) / [SAC training code](sac_training/experiment.py)
 
 ### How CARLA uses the trained policy
 
@@ -80,18 +96,23 @@ flowchart TD
     RGB[Synchronized stereo RGB] --> Depth[Rectification and SGBM depth]
     Depth --> Range[3D corridor obstacle estimate]
     Range --> Obs[Control observation]
-    State[Ego state and map waypoints] --> Obs
+    RGB --> Lane[Visible lane center and lookahead points]
+    Lane --> Obs
+    GNSS[Speed from GNSS fixes] --> Obs
     Obs --> Actor[Trained SAC actor]
     Actor -->|Requested controls| Brake[Deterministic brake supervisor]
     Range -->|Obstacle range| Brake
-    Checks[Speed, stereo coverage and frame age] --> Brake
+    Checks[Sensor availability, coverage and frame age] --> Brake
+    GNSS --> Brake
     Brake -->|Applied steering, throttle and brake| Ego[CARLA ego vehicle]
-    Depth -.-> Eval[Geometry evaluation]
+    Depth -.-> Eval[Compare estimates with simulator references]
     Range -.-> Eval
-    GT[Reference depth camera and actor box] -.-> Eval
+    GT[Reference depth, actor box, pose and speed] -.-> Eval
+    Lane -.-> Eval
+    GNSS -.-> Eval
 ```
 
-The training environment generates analytic waypoints and obstacle features. The CARLA run uses map waypoints and stereo-derived obstacle features. The reference depth camera scores dense depth, and the actor box supplies the reference obstacle range.
+The training environment generates analytic waypoints and obstacle features. In the sensor-driven CARLA run, the camera supplies lane offset, heading error and local lookahead points. The two cameras supply obstacle range and bearing. GNSS supplies speed. The simulator map is used for scenario setup and evaluation.
 
 ## Reproduce on Windows
 
@@ -130,7 +151,7 @@ When Town10HD_Opt is ready, run these from the project environment in a second P
 
 ```powershell
 .\.venv\Scripts\python.exe -m carla_integration.drive --port 2540
-.\.venv\Scripts\python.exe -m evaluation.carla_media
+.\.venv\Scripts\python.exe -m evaluation.carla_media --sensor-run
 ```
 
 The live script uses the seed-37 fixed SAC checkpoint. GPU rendering, weather, ambient objects and CPU load can change pixel metrics and wall-clock timings. The included Dockerfile describes a portable CPU experiment environment; the native Windows workflow above was exercised. The [technical report](docs/technical-report.md) covers the geometry, SAC objective, reward, vehicle dynamics, control transfer and limitations.

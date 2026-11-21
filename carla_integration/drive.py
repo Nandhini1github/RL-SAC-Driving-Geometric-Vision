@@ -2,7 +2,7 @@
 import argparse
 import csv
 import json
-from math import atan2, cos, hypot, radians, sin, tan
+from math import atan2, hypot, radians, sin, tan
 from pathlib import Path
 from queue import Queue
 from time import perf_counter
@@ -14,12 +14,14 @@ import torch
 from stable_baselines3 import SAC
 
 from geometric_vision.rig import Rectifier, obstacle
+from geometric_vision.lane import LaneCamera
+from carla_integration.speed import GNSSSpeed
 from geometric_vision.stereo import estimate, make_matcher
 from safety.brake import needs_brake
 
 W, H, BASELINE = 960, 540, 0.32
-OUT = Path("results/carla")
-RAW = Path(".runtime/capture")
+OUT = Path("results/carla_sensor")
+RAW = Path(".runtime/sensor_capture")
 
 
 def dot(a,b):
@@ -65,6 +67,8 @@ def run(port, frames):
     k=np.array([[fx,0,W/2],[0,fx,H/2],[0,0,1.]])
     rect=Rectifier(k,k,None,None,np.eye(3),np.array([-BASELINE,0.,0.]),(W,H))
     matcher=make_matcher()
+    lanes=LaneCamera(rect.k, BASELINE)
+    speedometer=GNSSSpeed()
     model=SAC.load("results/control/fixed",device="cpu")
     world.apply_settings(settings)
     try:
@@ -88,6 +92,14 @@ def run(port, frames):
             q=Queue()
             sensor.listen(q.put)
             queues.append(q)
+        gps_bp=lib.find("sensor.other.gnss")
+        for key in ("noise_lat_stddev","noise_lon_stddev"):
+            gps_bp.set_attribute(key,"0.00000006")
+        gps_bp.set_attribute("noise_seed","37")
+        gps=world.spawn_actor(gps_bp,carla.Transform(),attach_to=ego)
+        actors.append(gps)
+        gps_queue=Queue()
+        gps.listen(gps_queue.put)
         collisions=[]
         hit=world.spawn_actor(lib.find("sensor.other.collision"),carla.Transform(),attach_to=ego)
         actors.append(hit)
@@ -99,39 +111,43 @@ def run(port, frames):
         for step in range(frames+8):
             tick=world.tick()
             imgs=[q.get(timeout=20) for q in queues]
-            if len({im.frame for im in imgs})!=1:
-                raise RuntimeError("Unmatched camera frame IDs")
+            fix=gps_queue.get(timeout=20)
+            if len({fix.frame,*(im.frame for im in imgs)})!=1:
+                raise RuntimeError("Unmatched camera/GNSS frame IDs")
+            speed=speedometer.update(fix)
             if step<8: continue
             bgr=raw(imgs[0])[:,:,:3].copy()
             start=perf_counter()
             left,right=rect.apply(cv2.cvtColor(bgr,cv2.COLOR_BGR2GRAY),cv2.cvtColor(raw(imgs[1]),cv2.COLOR_BGRA2GRAY))
             depth=estimate(left,right,matcher,rect.k[0,0],rect.baseline)
             found=obstacle(depth,rect.k)
+            lane=lanes.estimate(left)
             ms=(perf_counter()-start)*1000
-            pose=ego.get_transform()
-            loc=pose.location
-            wp=road.get_waypoint(loc)
-            right_axis=pose.get_right_vector()
-            heading=radians(wp.transform.rotation.yaw-pose.rotation.yaw)
-            err=-dot(loc-wp.transform.location,wp.transform.get_right_vector())
-            speed=ego.get_velocity().length()
-            lat=[-dot(wp.next(d)[0].transform.location-loc,right_axis) for d in (3,6,10)]
+            missing = lane is None or speed is None
             z=found[1] if found else None
             bearing=-atan2(found[0]-BASELINE/2,found[1]+1.6) if found else 0.0
-            obs=np.clip([speed/10,err/3,sin(heading),lat[0]/5,lat[1]/8,lat[2]/12,
-                         min((hypot(found[0]-BASELINE/2,found[1]+1.6) if found else 40)/40,1),
-                         sin(bearing),float(bool(found)),*prev],-1,1).astype(np.float32)
-            action=model.predict(obs,deterministic=True)[0]
             cov=float(np.isfinite(depth).mean())
-            brake=needs_brake(speed,z,cov,tick-imgs[0].frame) or hold
+            err,heading,lat=(np.nan,np.nan,[np.nan]*3) if lane is None else lane.tracking_features()
+            if missing:
+                action=np.array([0.,-1.])
+                brake=True
+            else:
+                obs=np.clip([speed/10,err/3,sin(heading),lat[0]/5,lat[1]/8,lat[2]/12,
+                             min((hypot(found[0]-BASELINE/2,found[1]+1.6) if found else 40)/40,1),
+                             sin(bearing),float(bool(found)),*prev],-1,1).astype(np.float32)
+                action=model.predict(obs,deterministic=True)[0]
+                brake=needs_brake(speed,z,cov,tick-imgs[0].frame) or hold
             # Terminal stop task with a stationary obstacle. Hold once nearly stopped.
-            hold=hold or (brake and speed<1.0 and z is not None and z<5)
+            hold=hold or (not missing and brake and speed<1.0 and z is not None and z<5)
             steer=float(-action[0])
             throttle=0.0 if brake else float(max(action[1],0))
             pedal=1.0 if brake else float(max(-action[1],0))
             ego.apply_control(carla.VehicleControl(steer=steer,throttle=throttle,brake=pedal))
             prev=np.array([-steer, throttle-pedal])
             # Evaluation begins after control. Pixel-aligned left GT is remapped to the rectified view.
+            pose=ego.get_transform()
+            wp=road.get_waypoint(pose.location)
+            ref_err=-dot(pose.location-wp.transform.location,wp.transform.get_right_vector())
             gt_raw=raw(imgs[2]).astype(np.float32)
             gt=(gt_raw[:,:,2]+256*gt_raw[:,:,1]+65536*gt_raw[:,:,0])*(1000/16777215)
             gt=cv2.remap(gt,*rect.maps[0],cv2.INTER_NEAREST)
@@ -139,7 +155,10 @@ def run(port, frames):
             cam=imgs[0].transform
             truth=min(dot(vertex-cam.location,cam.get_forward_vector()) for vertex in target)
             row=dict(frame=imgs[0].frame,step=step-8,speed_mps=speed,steer=steer,requested_long=float(action[1]),
-                     brake=pedal,throttle=throttle,override=int(brake),collision=int(bool(collisions)),tracking_m=err,
+                     brake=pedal,throttle=throttle,override=int(brake),collision=int(bool(collisions)),tracking_m=ref_err,
+                     lane_offset_m=err,lane_heading_rad=heading,lane_markings=lane.markings if lane else 0,
+                     speed_ref_mps=ego.get_velocity().length(),sensor_missing=int(missing),
+                     lane_left_3m=lat[0],lane_left_6m=lat[1],lane_left_10m=lat[2],
                      range_est_m=z,parked_box_front_m=truth,coverage=cov,vision_ms=ms)
             for lo,hi in bins:
                 mask=(gt>=lo)&(gt<hi)
@@ -158,7 +177,7 @@ def run(port, frames):
                 cv2.imwrite(str(OUT/f"left_{i}.png"),bgr)
                 cv2.imwrite(str(OUT/f"right_{i}.png"),raw(imgs[1])[:,:,:3])
                 np.savez_compressed(OUT/f"reference_{i}.npz",depth_m=gt.astype(np.float16))
-            braking_frames=braking_frames+1 if brake and speed<0.15 else 0
+            braking_frames=braking_frames+1 if hold and speed is not None and speed<0.15 else 0
             if braking_frames>=12 or collisions: break
         with (OUT/"frames.csv").open("w",newline="") as f:
             writer=csv.DictWriter(f,fieldnames=list(rows[0]))

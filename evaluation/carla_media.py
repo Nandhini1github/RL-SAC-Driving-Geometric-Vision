@@ -1,5 +1,6 @@
 """Compose the CARLA evidence film in 1080p; camera panels retain native pixels."""
 import json
+import argparse
 import subprocess
 from pathlib import Path
 
@@ -39,6 +40,7 @@ def trace(img,x,y,w,h,series,maximum,colors,idx):
 
 
 def main():
+    MEDIA.mkdir(parents=True,exist_ok=True)
     df=pd.read_csv(CARLA/"frames.csv")
     speed=df.speed_mps.to_numpy()
     ranges=df.range_est_m.to_numpy()
@@ -54,6 +56,10 @@ def main():
                  detected_frames=int(np.isfinite(ranges).sum()),mean_coverage=df.coverage.mean(),
                  tracking_rmse_m=float(np.sqrt(np.mean(df.tracking_m**2))),shield_frames=int(df.override.sum()),
                  final_box_range_m=truth[-1],peak_speed_mps=float(max(speed)))
+    if "speed_ref_mps" in df:
+        summary.update(speed_rmse_mps=float(np.sqrt(np.mean((df.speed_mps-df.speed_ref_mps)**2))),
+                       lane_offset_rmse_m=float(np.sqrt(np.mean((df.lane_offset_m-df.tracking_m)**2))),
+                       missing_input_frames=int(df.sensor_missing.sum()))
     (CARLA/"metrics.json").write_text(json.dumps(summary,indent=2))
     t=np.arange(len(df))/10
     fig,axes=plt.subplots(1,3,figsize=(13,3.7),layout="constrained")
@@ -73,7 +79,7 @@ def main():
     ff=imageio_ffmpeg.get_ffmpeg_exe()
     output=MEDIA/"carla-stereo-stop.mp4"
     cmd=[ff,"-y","-loglevel","error","-f","rawvideo","-pix_fmt","bgr24","-s","1920x1080","-r","10",
-         "-i","-","-an","-c:v","libx264","-preset","fast","-crf","17","-pix_fmt","yuv420p","-movflags","+faststart",str(output)]
+         "-i","-","-an","-c:v","libx264","-preset","fast","-crf","20","-pix_fmt","yuv420p","-movflags","+faststart",str(output)]
     previews=[]
     with subprocess.Popen(cmd,stdin=subprocess.PIPE) as process:
         for i,row in df.iterrows():
@@ -82,7 +88,15 @@ def main():
             label(img,f"{t[i]:.1f} s",1680,87,1.65,TEAL)
             img[139:679,:960]=cv2.imread(str(CAPTURE/f"rgb_{i:03}.jpg"))
             img[139:679,960:]=cv2.imread(str(CAPTURE/f"depth_{i:03}.jpg"))
-            label(img,"Left RGB camera",32,721,1.0)
+            if "lane_heading_rad" in row and row.lane_markings:
+                forward=np.linspace(5.2,18,32)
+                slope=np.tan(row.lane_heading_rad)
+                right=row.lane_offset_m*np.hypot(1,slope)+slope*forward
+                f=480/np.tan(np.deg2rad(40))
+                u=480+f*(right+.16)/(forward-1.6)
+                v=139+270+f*1.5/(forward-1.6)
+                cv2.polylines(img,[np.column_stack((u,v)).astype(np.int32)],False,TEAL,3,cv2.LINE_AA)
+            label(img,"Left RGB and fitted lane" if "lane_heading_rad" in row else "Left RGB camera",32,721,1.0)
             label(img,"Stereo depth",990,721,1.0)
             label(img,"Warm = near     Cool = far (>30 m)     Black = invalid",1215,720,.71,MUTED)
             label(img,f"Speed   {speed[i]:.1f} m/s",50,805,1.12)
@@ -104,9 +118,15 @@ def main():
                 cv2.imwrite(str(MEDIA/"carla-poster.jpg"),img,[cv2.IMWRITE_JPEG_QUALITY,95])
         process.stdin.close()
         if process.wait(): raise RuntimeError("H.264 export failed")
-    previews[0].save(MEDIA/"carla-preview.gif",save_all=True,append_images=previews[1:],duration=300,loop=0)
+    previews[0].save(MEDIA/"carla-preview.gif",save_all=True,append_images=previews[1:],duration=600,loop=0)
     print(json.dumps(summary,indent=2))
 
 
 if __name__=="__main__":
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--sensor-run",action="store_true")
+    if parser.parse_args().sensor_run:
+        CARLA=Path("results/carla_sensor")
+        MEDIA=CARLA/"media"
+        CAPTURE=Path(".runtime/sensor_capture")
     main()
