@@ -1,0 +1,28 @@
+{
+  "seed": 37,
+  "selected": 48000,
+  "validation": [
+    {
+      "steps": 16000,
+      "routes": 24,
+      "finishes": 20,
+      "contacts": 0,
+      "mean_rmse_m": 0.5263046255217375
+    },
+    {
+      "steps": 32000,
+      "routes": 24,
+      "finishes": 19,
+      "contacts": 0,
+      "mean_rmse_m": 0.49651141446114805
+    },
+    {
+      "steps": 48000,
+      "routes": 24,
+      "finishes": 22,
+      "contacts": 0,
+      "mean_rmse_m": 0.4893202041244174
+    }
+  ],
+  "elapsed_s": 520.3589999999385
+}

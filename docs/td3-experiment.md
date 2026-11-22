@@ -18,7 +18,38 @@ A seed sets the starting point of a pseudorandom number generator. The project f
 
 During inference the frozen policies compute their commands directly. For example, if their steering requests are 0.10, 0.12 and 0.40, the ensemble requests 0.12. It takes the median separately for acceleration. The brake supervisor then checks whether to override the longitudinal command. [Controller](../td3_training/tracking.py#L41-L62) · [Brake check](../carla_integration/drive.py#L128-L149)
 
-## Reproduce the steering weights
+### How the teacher chooses steering
+
+For a lookahead point a distance `L` ahead with lateral offset `y`, the implemented pure pursuit rule requests approximately `atan(2 × wheelbase × y / L²)` radians of steering. A centered point gives zero steering. A point to the left gives left steering. The camera already supplies both quantities, so each teacher action has a visible geometric explanation. A steering PID could instead track an error over time, Stanley could combine heading and cross-track error, and MPC could optimize a sequence of controls over a prediction horizon. Pure pursuit supplied the steering labels, while a separate speed rule supplied the longitudinal labels. [Teacher implementation](../td3_training/routes.py#L17-L26)
+
+## Online TD3 from scratch
+
+Online TD3 collected its own experience in the Gymnasium bicycle simulator using the 14 camera-based inputs, including lane history. It started from random weights, without demonstration actions or offline checkpoints. The environment rewarded visual progress and penalized camera-estimated tracking error, speed error and abrupt steering. The first 2,000 steps filled the replay buffer before learning began. During training, Gaussian exploration noise varied the controls. Each seed received 48,000 interactions (144,000 total). The actor and critics used two 128-unit hidden layers and batches of 128 replay samples. [Trainer](../td3_training/online.py) · [Environment reward](../driving_environment/route.py)
+
+Every 16,000 steps the policy drove 24 separate validation routes, scored from camera measurements. Checkpoints were ranked first by visual finishes, then by fewer visual hazards, then by lower visual tracking error. Validation selected 48,000 steps for seed 37, 32,000 for seed 83 and 16,000 for seed 109. Test actions used the frozen checkpoints with exploration turned off. Only the held-out evaluator read simulator geometry, after each action. [Validation logs and checkpoints](../results/online_td3)
+
+| Clean finishes out of 200 per scene | Offline TD3 | Pure pursuit | Online TD3 |
+|---|---:|---:|---:|
+| Straight | 198 | 197 | 173 |
+| Bend | 200 | 198 | 195 |
+| Obstacle bypass | 200 | 199 | 132 |
+
+All 100 unsuccessful online runs ended short of the 39 m finish threshold, with zero recorded contacts and zero departures beyond 2.6 m. The published route CSV includes the finish, departure and contact flags for each case. Online scores describe Gymnasium driving. [Online test results](../results/online_td3/online_td3.csv) · [Offline TD3 results](../results/tracking/td3.csv) · [Pure pursuit results](../results/tracking/pure_pursuit.csv)
+
+From the repository root, use the control environment described in the README. To replay the published online checkpoints:
+
+```powershell
+& $py -m td3_training.online evaluate --output .runtime/online-replay
+```
+
+To train fresh policies and evaluate the validation-selected weights:
+
+```powershell
+& $py -m td3_training.online train --output .runtime/online-repeat
+& $py -m td3_training.online evaluate --models .runtime/online-repeat --output .runtime/online-repeat
+```
+
+## Reproduce the offline steering weights
 
 Run from the repository root with the published dataset and longitudinal weights present. This writes the retrained steering heads to a separate directory.
 

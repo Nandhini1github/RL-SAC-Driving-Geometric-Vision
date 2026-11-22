@@ -1,0 +1,28 @@
+{
+  "all": {
+    "routes": 600,
+    "finishes": 500,
+    "contacts": 0,
+    "mean_rmse_m": 0.15884773750460449
+  },
+  "by_scene": {
+    "straight": {
+      "routes": 200,
+      "finishes": 173,
+      "contacts": 0,
+      "mean_rmse_m": 0.12731571201620248
+    },
+    "bend": {
+      "routes": 200,
+      "finishes": 195,
+      "contacts": 0,
+      "mean_rmse_m": 0.15955545110309946
+    },
+    "obstacle": {
+      "routes": 200,
+      "finishes": 132,
+      "contacts": 0,
+      "mean_rmse_m": 0.1896720493945116
+    }
+  }
+}

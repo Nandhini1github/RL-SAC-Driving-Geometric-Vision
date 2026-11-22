@@ -73,16 +73,23 @@ The 0.43 m range error describes one obstacle surface. Dense depth was less accu
 
 ## Gymnasium route completion
 
-Both controllers drove the same **600 held-out routes**, with 200 straights, 200 bends and 200 obstacle bypasses. Both use the same lane history derived from camera observations. Pure pursuit steers toward the estimated centerline 3.5 m ahead and targets 4.0 m/s. TD3 issues learned steering and acceleration commands.
+All controllers drove the same **600 held-out routes**, with 200 straights, 200 bends and 200 obstacle bypasses. They use the same camera-derived lane history. The pure pursuit baseline steers toward the estimated lane center 3.5 m ahead and uses a speed rule targeting 4.0 m/s. Both TD3 controllers learn steering and acceleration.
 
 | Controller | Clean finishes | Lateral tracking RMSE | Contacts |
 |---|---:|---:|---:|
-| TD3 | 598/600 (99.7%) | 14.61 cm | 0 |
+| Offline TD3 | 598/600 (99.7%) | 14.61 cm | 0 |
 | Pure pursuit | 594/600 (99.0%) | 14.78 cm | 0 |
+| Online TD3 | 500/600 (83.3%) | 15.88 cm | 0 |
 
-TD3 finished four additional routes and reduced mean per-route lateral RMSE by **0.17 cm**. On the 594 routes both finished, RMSE was 14.64 cm for TD3 and 14.80 cm for Pure pursuit. The adjusted paired interval for the completion gain spans 0 to 1.5 percentage points, so a tie in completion remains plausible. [Per-route scores and uncertainty](docs/td3-committee.md) · [Watch both controllers on the same obstacle bypass](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#td3)
+Offline TD3 finished four more routes than pure pursuit and reduced mean per-route lateral RMSE by **0.17 cm**. On the 594 routes both finished, RMSE was 14.64 cm for offline TD3 and 14.80 cm for pure pursuit. The adjusted paired interval for the completion gain spans 0 to 1.5 percentage points, so a tie in completion remains plausible. [Paired offline TD3 and pure pursuit scores](docs/td3-committee.md) · [Watch the obstacle bypass](https://nandhini1github.github.io/RL-TD3-Driving-Using-Geometric-Vision/#td3)
 
-![Unfinished routes and lateral tracking RMSE by scene for TD3 and Pure pursuit](results/tracking/comparison.png)
+![Clean finishes and lateral tracking error on straight, bend and obstacle-bypass routes for offline TD3, pure pursuit and online TD3](results/online_td3/comparison.png)
+
+### Why use pure pursuit as the teacher?
+
+The camera already estimates the lane center several metres ahead. Pure pursuit turns the sideways offset of one lookahead point into a continuous steering command. A separate speed rule supplies the acceleration example. Together they can label a recorded frame, including one where the car has drifted off center. A Stanley controller could also use the measured lateral and heading errors. MPC would require choosing a prediction model, cost and horizon. Pure pursuit gave this experiment a teacher whose steering target can be checked directly on the camera image. The experiment did not compare alternative teachers. [Demonstration controller](td3_training/routes.py#L18-L26)
+
+**What did TD3 learn without demonstrations?** Online TD3 started from random weights and learned by exploring in Gymnasium for 48,000 interactions per seed. It finished 500 routes with zero recorded contacts. Its largest shortfall was on obstacle bypasses, where it finished **132/200**, compared with **200/200** for offline TD3 with demonstrations. This gives a practical reason to use demonstrations when completing the route matters as much as avoiding contact. The two training recipes also differ in their data, rewards, update schedules and policy architecture, so the 98-finish gap cannot be attributed to the teacher alone. The CARLA videos show offline TD3. [Online training, checkpoints and reproduction](docs/td3-experiment.md#online-td3-from-scratch) · [Online per-route results](results/online_td3/online_td3.csv)
 
 ## Reproduce on Windows
 
