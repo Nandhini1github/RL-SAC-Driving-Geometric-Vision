@@ -37,7 +37,7 @@ The map trace and tracking RMSE compare the vehicle’s center with the **assign
 
 Steering and acceleration are continuous. TD3 learns an actor that can issue both commands directly from lane position, camera-estimated speed, obstacle geometry and its previous commands. The actor first imitates driving demonstrations. During offline training, two critics estimate how much future camera-derived reward an action will earn. TD3 uses the lower estimate in its training target and updates the actor less often than the critics. These choices limit the effect of overoptimistic action values. Keeping an imitation term during training anchors the actor to demonstrated behavior.
 
-TD3 keeps the longitudinal policy fixed and learns steering from the current camera measurements and a short history of visible lane markings. At each step the controller takes the median steering request and median acceleration request across three training seeds. [Training and checkpoint selection](docs/td3-experiment.md)
+During steering training, TD3 keeps the longitudinal policy fixed and learns from current camera measurements and a short history of visible lane markings. Three runs use the same recorded drives with different training seeds (37, 83, and 109). Each seed sets the starting network weights, the sequence of training batches, and the small random changes TD3 makes to actions when training its critics. In CARLA, all three trained policies see the same camera observations. The controller uses their median steering request and their median acceleration request at each step. [How the project uses random seeds](docs/td3-experiment.md#how-the-project-uses-random-seeds)
 
 ## What the stereo cameras measured
 
